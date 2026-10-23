@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,12 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
-  Switch,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { EstoqueService } from '../../database/dbService';
 import { Produto } from '../../database/models';
 import { HapticService } from '../../services/hapticService';
-import { X, Truck, Check, Plus, Minus } from 'lucide-react-native';
+import { X, Truck, Check, Plus, Minus, ArrowRightLeft, Sparkles } from 'lucide-react-native';
 
 interface CargaEnvaseModalProps {
   visible: boolean;
@@ -31,42 +30,69 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
   onSuccess,
 }) => {
   const { colors } = useTheme();
-  const [quantidades, setQuantidades] = useState<Record<string, number>>({});
-  const [motivo, setMotivo] = useState('');
-  const [atualizarGarrafoes, setAtualizarGarrafoes] = useState(true);
+
+  // Produtos que usam vasilhame retornável (Água e Gás)
+  const produtosRetornaveis = produtos.filter(
+    (p) =>
+      p.categoria === 'AGUA_20L' ||
+      p.categoria === 'AGUA_10L' ||
+      p.categoria === 'GAS_P13' ||
+      p.nome.includes('20L') ||
+      p.nome.includes('Gás')
+  );
+
+  const [selectedProdutoId, setSelectedProdutoId] = useState<string>('');
+  const [qtdCheios, setQtdCheios] = useState('50');
+  const [qtdVazios, setQtdVazios] = useState('50');
+  const [observacao, setObservacao] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const alterarQtd = (prodId: string, delta: number) => {
+  useEffect(() => {
+    if (visible && produtosRetornaveis.length > 0 && !selectedProdutoId) {
+      setSelectedProdutoId(produtosRetornaveis[0].id);
+    }
+  }, [visible, produtosRetornaveis]);
+
+  const produtoSelecionado = produtos.find((p) => p.id === selectedProdutoId);
+
+  const aplicarTrocaExata = () => {
     HapticService.light();
-    const atual = quantidades[prodId] || 0;
-    const nova = Math.max(0, atual + delta);
-    setQuantidades({ ...quantidades, [prodId]: nova });
+    setQtdVazios(qtdCheios);
   };
 
   const handleSalvar = async () => {
-    const itens = Object.entries(quantidades)
-      .filter(([_, qtd]) => qtd > 0)
-      .map(([produtoId, quantidade]) => ({ produtoId, quantidade }));
+    const numCheios = parseInt(qtdCheios, 10) || 0;
+    const numVazios = parseInt(qtdVazios, 10) || 0;
 
-    if (itens.length === 0) {
-      Alert.alert('Atenção', 'Informe a quantidade de pelo menos um produto que chegou da fábrica.');
+    if (!selectedProdutoId) {
+      Alert.alert('Atenção', 'Selecione o produto que chegou da fábrica.');
+      return;
+    }
+
+    if (numCheios <= 0 && numVazios <= 0) {
+      Alert.alert('Atenção', 'Informe a quantidade de garrafões cheios recebidos ou vazios entregues.');
       return;
     }
 
     try {
       setSubmitting(true);
       await HapticService.medium();
-      for (const it of itens) {
-        EstoqueService.adicionarCargaEnvase(it.produtoId, it.quantidade);
-      }
+
+      EstoqueService.registrarCargaFabrica({
+        produtoId: selectedProdutoId,
+        qtdCheiosRecebidos: numCheios,
+        qtdVaziosDevolvidos: numVazios,
+        observacao: observacao.trim() || undefined,
+      });
 
       await HapticService.success();
-      setQuantidades({});
-      setMotivo('');
+      setQtdCheios('50');
+      setQtdVazios('50');
+      setObservacao('');
       onSuccess();
     } catch (e: any) {
       await HapticService.error();
-      Alert.alert('Erro', e.message || 'Falha ao registrar carga');
+      Alert.alert('Erro', e.message || 'Falha ao registrar carga da fábrica');
     } finally {
       setSubmitting(false);
     }
@@ -82,7 +108,7 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
               <View>
                 <Text style={[styles.title, { color: colors.text }]}>Chegada de Carga (Fábrica)</Text>
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                  Entrada diária de vasilhames cheios
+                  Recebimento de cheios e devolução de vazios
                 </Text>
               </View>
             </View>
@@ -92,68 +118,130 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            <Text style={[styles.label, { color: colors.text }]}>Produtos Recebidos:</Text>
-            {produtos.map((prod) => {
-              const qtd = quantidades[prod.id] || 0;
-              return (
-                <View key={prod.id} style={[styles.itemRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.itemTitle, { color: colors.text }]}>{prod.nome}</Text>
-                    <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                      Estoque atual: {prod.estoque?.quantidadeAtual || 0} un
-                    </Text>
-                  </View>
-                  <View style={styles.counterBox}>
+            {/* 1. Selecionar Produto */}
+            <Text style={[styles.label, { color: colors.text }]}>1. Produto Recebido da Fábrica:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {produtosRetornaveis.map((prod) => {
+                  const isSel = selectedProdutoId === prod.id;
+                  return (
                     <TouchableOpacity
-                      style={[styles.countBtn, { backgroundColor: colors.card }]}
-                      onPress={() => alterarQtd(prod.id, -10)}
+                      key={prod.id}
+                      style={[
+                        styles.prodPill,
+                        {
+                          backgroundColor: isSel ? colors.primary : colors.surface,
+                          borderColor: isSel ? colors.primary : colors.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        HapticService.light();
+                        setSelectedProdutoId(prod.id);
+                      }}
                     >
-                      <Text style={[styles.countBtnText, { color: colors.text }]}>-10</Text>
+                      <Text
+                        style={[
+                          styles.prodPillText,
+                          { color: isSel ? '#fff' : colors.text, fontWeight: isSel ? '800' : '600' },
+                        ]}
+                      >
+                        {prod.nome}
+                      </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.countBtn, { backgroundColor: colors.card }]}
-                      onPress={() => alterarQtd(prod.id, -1)}
-                    >
-                      <Minus size={14} color={colors.text} />
-                    </TouchableOpacity>
-                    <Text style={[styles.counterVal, { color: colors.primary }]}>{qtd}</Text>
-                    <TouchableOpacity
-                      style={[styles.countBtn, { backgroundColor: colors.card }]}
-                      onPress={() => alterarQtd(prod.id, 1)}
-                    >
-                      <Plus size={14} color={colors.text} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.countBtn, { backgroundColor: colors.card }]}
-                      onPress={() => alterarQtd(prod.id, 10)}
-                    >
-                      <Text style={[styles.countBtnText, { color: colors.text }]}>+10</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
-
-            {/* Toggle de Atualização de Ciclo */}
-            <View style={[styles.toggleBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.toggleTitle, { color: colors.text }]}>
-                  Converter Garrafões Vazios em Cheios
-                </Text>
-                <Text style={{ color: colors.textMuted, fontSize: 11 }}>
-                  Debita garrafões vazios entregues na fábrica e credita garrafões cheios no lote atual.
-                </Text>
+                  );
+                })}
               </View>
-              <Switch
-                value={atualizarGarrafoes}
-                onValueChange={setAtualizarGarrafoes}
-                trackColor={{ false: colors.border, true: colors.primary }}
-              />
+            </ScrollView>
+
+            {/* 2. Garrafões Cheios Recebidos */}
+            <View style={[styles.cardInput, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View>
+                  <Text style={[styles.inputHeading, { color: colors.success }]}>
+                    🟢 CHEIOS RECEBIDOS (+ Estoque)
+                  </Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 11 }}>
+                    Garrafões cheios que desceram do caminhão
+                  </Text>
+                </View>
+                <TextInput
+                  style={[styles.numericInput, { color: colors.text, borderColor: colors.success }]}
+                  keyboardType="numeric"
+                  value={qtdCheios}
+                  onChangeText={setQtdCheios}
+                  selectTextOnFocus
+                />
+              </View>
+
+              {/* Botões rápidos */}
+              <View style={styles.quickBtnRow}>
+                {[10, 25, 50, 100, 150].map((n) => (
+                  <TouchableOpacity
+                    key={n}
+                    style={[styles.quickBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onPress={() => {
+                      HapticService.light();
+                      setQtdCheios(String(n));
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text }}>{n}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
 
-            {/* Motivo / NF */}
+            {/* Botão de Troca 1 por 1 */}
+            <TouchableOpacity
+              style={[styles.trocaExataBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
+              onPress={aplicarTrocaExata}
+              activeOpacity={0.7}
+            >
+              <ArrowRightLeft size={16} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 12 }}>
+                Troca Padrão: Devolveu {qtdCheios || '0'} Vazios (1 por 1)
+              </Text>
+            </TouchableOpacity>
+
+            {/* 3. Garrafões Vazios Devolvidos */}
+            <View style={[styles.cardInput, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View>
+                  <Text style={[styles.inputHeading, { color: colors.primary }]}>
+                    🔵 VAZIOS ENVIADOS (- Pátio)
+                  </Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 11 }}>
+                    Vazios entregues à fábrica para recarga
+                  </Text>
+                </View>
+                <TextInput
+                  style={[styles.numericInput, { color: colors.text, borderColor: colors.primary }]}
+                  keyboardType="numeric"
+                  value={qtdVazios}
+                  onChangeText={setQtdVazios}
+                  selectTextOnFocus
+                />
+              </View>
+
+              {/* Botões rápidos */}
+              <View style={styles.quickBtnRow}>
+                {[0, 10, 25, 50, 100].map((n) => (
+                  <TouchableOpacity
+                    key={n}
+                    style={[styles.quickBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onPress={() => {
+                      HapticService.light();
+                      setQtdVazios(String(n));
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text }}>{n}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Observações / NF */}
             <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>
-              Observação / Número da NF:
+              Observação / Motorista / NF:
             </Text>
             <TextInput
               style={[
@@ -162,8 +250,8 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
               ]}
               placeholder="Ex: Carga matutina Caruaru - NF 4580"
               placeholderTextColor={colors.textMuted}
-              value={motivo}
-              onChangeText={setMotivo}
+              value={observacao}
+              onChangeText={setObservacao}
             />
 
             <View style={{ height: 20 }} />
@@ -181,7 +269,7 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
               ) : (
                 <>
                   <Check size={20} color="#fff" />
-                  <Text style={styles.confirmBtnText}>Lançar Entrada no Estoque</Text>
+                  <Text style={styles.confirmBtnText}>Confirmar Entrada de Carga</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -201,7 +289,7 @@ const styles = StyleSheet.create({
   container: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '90%',
+    maxHeight: '92%',
     paddingBottom: 16,
   },
   header: {
@@ -226,60 +314,62 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 8,
   },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
+  prodPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 8,
   },
-  itemTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+  prodPillText: {
+    fontSize: 13,
   },
-  counterBox: {
+  cardInput: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  inputHeading: {
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  numericInput: {
+    width: 80,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  quickBtnRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    gap: 8,
+    marginTop: 10,
   },
-  countBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+  quickBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 8,
+    borderWidth: 1,
+  },
+  trocaExataBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  countBtnText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  counterVal: {
-    fontSize: 17,
-    fontWeight: '900',
-    minWidth: 26,
-    textAlign: 'center',
-  },
-  toggleBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    marginTop: 10,
-    gap: 12,
-  },
-  toggleTitle: {
-    fontSize: 13,
-    fontWeight: '800',
+    borderStyle: 'dashed',
+    marginBottom: 10,
   },
   input: {
     height: 46,
     borderRadius: 10,
     borderWidth: 1,
     paddingHorizontal: 12,
-    fontSize: 13,
+    fontSize: 14,
   },
   footer: {
     padding: 16,

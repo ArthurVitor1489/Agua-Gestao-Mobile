@@ -22,7 +22,10 @@ import {
   Layers,
   ArrowUpRight,
   ArrowDownRight,
-  ShieldAlert,
+  Package,
+  Droplets,
+  Flame,
+  CheckCircle2,
 } from 'lucide-react-native';
 
 export const EstoqueScreen: React.FC = () => {
@@ -33,7 +36,7 @@ export const EstoqueScreen: React.FC = () => {
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [abaAtiva, setAbaAtiva] = useState<'garrafoes' | 'produtos' | 'auditoria'>('garrafoes');
+  const [abaAtiva, setAbaAtiva] = useState<'vasilhames' | 'produtos' | 'auditoria'>('vasilhames');
 
   // Modais
   const [showCargaModal, setShowCargaModal] = useState(false);
@@ -63,41 +66,32 @@ export const EstoqueScreen: React.FC = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     await HapticService.light();
-    await carregarEstoque();
+    carregarEstoque();
   };
 
-  // Totais de garrafões
-  const cheios = garrafoes.filter((g) => g.status === 'CHEIO').reduce((acc, g) => acc + g.quantidade, 0);
-  const vazios = garrafoes
-    .filter((g) => g.status === 'VAZIO' || g.status === 'DISPONIVEL')
-    .reduce((acc, g) => acc + g.quantidade, 0);
-  const avarias = garrafoes
-    .filter((g) => g.status === 'DANIFICADO' || g.status === 'QUEBRADO')
-    .reduce((acc, g) => acc + g.quantidade, 0);
-  const vencidos = garrafoes
-    .filter((g) => g.status === 'VENCIDO' || g.status === 'DESCARTADO')
-    .reduce((acc, g) => acc + g.quantidade, 0);
-
-  const anoAtual = new Date().getFullYear();
+  // Resumo de Vasilhames
+  const resumo = EstoqueService.getResumoVasilhames();
+  const percentualCheios =
+    resumo.totalGeral > 0 ? Math.round((resumo.cheios / (resumo.cheios + resumo.vazios || 1)) * 100) : 0;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Abas Superiores */}
       <View style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity
-          style={[styles.tabItem, abaAtiva === 'garrafoes' && { borderBottomColor: colors.primary, borderBottomWidth: 3 }]}
+          style={[styles.tabItem, abaAtiva === 'vasilhames' && { borderBottomColor: colors.primary, borderBottomWidth: 3 }]}
           onPress={() => {
             HapticService.light();
-            setAbaAtiva('garrafoes');
+            setAbaAtiva('vasilhames');
           }}
         >
           <Text
             style={[
               styles.tabText,
-              { color: abaAtiva === 'garrafoes' ? colors.primary : colors.textMuted, fontWeight: abaAtiva === 'garrafoes' ? '800' : '600' },
+              { color: abaAtiva === 'vasilhames' ? colors.primary : colors.textMuted, fontWeight: abaAtiva === 'vasilhames' ? '800' : '600' },
             ]}
           >
-            Vasilhames & Lotes
+            Vasilhames & Pátio
           </Text>
         </TouchableOpacity>
 
@@ -131,7 +125,7 @@ export const EstoqueScreen: React.FC = () => {
               { color: abaAtiva === 'auditoria' ? colors.primary : colors.textMuted, fontWeight: abaAtiva === 'auditoria' ? '800' : '600' },
             ]}
           >
-            Extrato Auditoria
+            Extrato de Movimentações
           </Text>
         </TouchableOpacity>
       </View>
@@ -164,112 +158,106 @@ export const EstoqueScreen: React.FC = () => {
             activeOpacity={0.8}
           >
             <AlertTriangle size={18} color={colors.secondary} />
-            <Text style={[styles.secondaryActionText, { color: colors.text }]}>Lançar Avaria</Text>
+            <Text style={[styles.secondaryActionText, { color: colors.text }]}>Lançar Avaria / Quebra</Text>
           </TouchableOpacity>
         </View>
 
-        {abaAtiva === 'garrafoes' && (
+        {/* ---------------- ABA 1: VASILHAMES & PÁTIO ---------------- */}
+        {abaAtiva === 'vasilhames' && (
           <>
-            {/* Cards de Resumo de Vasilhames */}
+            {/* Cards de Resumo Rápido */}
             <View style={styles.kpiGrid}>
               <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: '700' }}>CHEIOS</Text>
-                <Text style={[styles.kpiNum, { color: colors.success }]}>{cheios}</Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '800' }}>CHEIOS PRONTOS</Text>
+                <Text style={[styles.kpiNum, { color: colors.success }]}>{resumo.cheios}</Text>
                 <Text style={{ fontSize: 11, color: colors.textMuted }}>Prontos p/ rota</Text>
               </View>
 
               <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: '700' }}>VAZIOS</Text>
-                <Text style={[styles.kpiNum, { color: colors.primary }]}>{vazios}</Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '800' }}>VAZIOS NO PÁTIO</Text>
+                <Text style={[styles.kpiNum, { color: colors.primary }]}>{resumo.vazios}</Text>
                 <Text style={{ fontSize: 11, color: colors.textMuted }}>Aguardando fábrica</Text>
               </View>
 
               <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: '700' }}>AVARIADOS</Text>
-                <Text style={[styles.kpiNum, { color: colors.secondary }]}>{avarias}</Text>
-                <Text style={{ fontSize: 11, color: colors.textMuted }}>Trincados/danificados</Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '800' }}>AVARIADOS</Text>
+                <Text style={[styles.kpiNum, { color: colors.secondary }]}>{resumo.avarias}</Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted }}>Quebras no CD/transporte</Text>
               </View>
 
               <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: '700' }}>VENCIDOS (ANP)</Text>
-                <Text style={[styles.kpiNum, { color: colors.danger }]}>{vencidos}</Text>
-                <Text style={{ fontSize: 11, color: colors.textMuted }}>+3 anos de uso</Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '800' }}>TOTAL VASILHAMES</Text>
+                <Text style={[styles.kpiNum, { color: colors.text }]}>{resumo.totalGeral}</Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted }}>Patrimônio em estoque</Text>
               </View>
             </View>
 
-            {/* Lista de Lotes por Ano de Fabricação (Regra ANP 3 Anos) */}
-            <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 14 }]}>
-              Lotes de Vasilhames por Ano de Fabricação
-            </Text>
-            <View style={{ gap: 8, marginTop: 8 }}>
-              {garrafoes.map((lote) => {
-                const anosRestantes = lote.anoValidade - anoAtual;
-                const isVencido = anosRestantes < 0;
-                const isProximoVencimento = anosRestantes <= 1 && !isVencido;
-
-                return (
-                  <View
-                    key={lote.id}
-                    style={[
-                      styles.loteCardItem,
-                      {
-                        backgroundColor: colors.card,
-                        borderColor: isVencido ? colors.danger : isProximoVencimento ? colors.warning : colors.border,
-                      },
-                    ]}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={[styles.loteItemAno, { color: colors.text }]}>
-                          Lote {lote.anoFabricacao}
-                        </Text>
-                        <View
-                          style={[
-                            styles.statusTag,
-                            {
-                              backgroundColor:
-                                lote.status === 'CHEIO'
-                                  ? '#dcfce7'
-                                  : lote.status === 'VAZIO'
-                                  ? '#e0f2fe'
-                                  : '#fee2e2',
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={{
-                              fontSize: 10,
-                              fontWeight: '900',
-                              color:
-                                lote.status === 'CHEIO'
-                                  ? '#15803d'
-                                  : lote.status === 'VAZIO'
-                                  ? '#0284c7'
-                                  : '#b91c1c',
-                            }}
-                          >
-                            {lote.status}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
-                        Validade ANP: {lote.anoValidade} ({isVencido ? 'VENCIDO' : `${anosRestantes} ano(s) restante(s)`})
-                      </Text>
-                    </View>
-
-                    <Text style={[styles.loteItemQtd, { color: colors.text }]}>{lote.quantidade} un</Text>
+            {/* Balanço Operacional Visual */}
+            <View style={[styles.balanceCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Droplets size={22} color={colors.primary} />
+                  <View>
+                    <Text style={[styles.balanceTitle, { color: colors.text }]}>Galão de Água 20L</Text>
+                    <Text style={{ fontSize: 12, color: colors.textMuted }}>Ciclo de Vasilhames Retornáveis</Text>
                   </View>
-                );
-              })}
-              {garrafoes.length === 0 && (
-                <Text style={{ textAlign: 'center', color: colors.textMuted, padding: 20 }}>
-                  Nenhum lote de garrafão cadastrado.
-                </Text>
-              )}
+                </View>
+                <View style={[styles.badgePercent, { backgroundColor: colors.primaryLight }]}>
+                  <Text style={{ color: colors.primary, fontWeight: '900', fontSize: 12 }}>
+                    {percentualCheios}% Cheios
+                  </Text>
+                </View>
+              </View>
+
+              {/* Barra de Progresso Visual Cheios vs Vazios */}
+              <View style={[styles.progressTrack, { backgroundColor: colors.surface }]}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${Math.min(100, Math.max(5, percentualCheios))}%`, backgroundColor: colors.success },
+                  ]}
+                />
+              </View>
+
+              <View style={styles.balanceLegendRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={[styles.dot, { backgroundColor: colors.success }]} />
+                  <Text style={{ fontSize: 12, color: colors.text, fontWeight: '700' }}>
+                    {resumo.cheios} un Cheios
+                  </Text>
+                </View>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={[styles.dot, { backgroundColor: colors.primary }]} />
+                  <Text style={{ fontSize: 12, color: colors.text, fontWeight: '700' }}>
+                    {resumo.vazios} un Vazios
+                  </Text>
+                </View>
+
+                {resumo.avarias > 0 && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={[styles.dot, { backgroundColor: colors.secondary }]} />
+                    <Text style={{ fontSize: 12, color: colors.secondary, fontWeight: '700' }}>
+                      {resumo.avarias} avarias
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Como funciona o fluxo */}
+            <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.infoBoxTitle, { color: colors.text }]}>💡 Como funciona o ciclo simples:</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4, lineHeight: 18 }}>
+                • <Text style={{ fontWeight: 'bold' }}>Chegada da fábrica:</Text> receba os cheios do caminhão e entregue os vazios em troca.{'\n'}
+                • <Text style={{ fontWeight: 'bold' }}>Venda em rota / balcão:</Text> ao vender água 20L, o app debita 1 cheio e credita 1 vazio automaticamente.{'\n'}
+                • <Text style={{ fontWeight: 'bold' }}>Avarias e quebras:</Text> se quebrar no transporte ou no CD, lance na opção "Lançar Avaria" para manter seu estoque sempre exato.
+              </Text>
             </View>
           </>
         )}
 
+        {/* ---------------- ABA 2: PRODUTOS ---------------- */}
         {abaAtiva === 'produtos' && (
           <View style={{ gap: 8 }}>
             {produtos.map((p) => (
@@ -298,7 +286,7 @@ export const EstoqueScreen: React.FC = () => {
                     {p.estoque?.quantidadeAtual || 0} un
                   </Text>
                   <Text style={{ fontSize: 11, color: colors.textMuted }}>
-                    Mín: {p.estoque?.quantidadeMinima || 10} un
+                    {p.categoria.includes('AGUA') || p.categoria.includes('GAS') ? 'Cheios prontos' : 'Em estoque'}
                   </Text>
                 </View>
               </View>
@@ -306,12 +294,14 @@ export const EstoqueScreen: React.FC = () => {
           </View>
         )}
 
+        {/* ---------------- ABA 3: EXTRATO / AUDITORIA ---------------- */}
         {abaAtiva === 'auditoria' && (
           <View style={{ gap: 8 }}>
-            {movimentacoes.slice(0, 30).map((m) => {
+            {movimentacoes.slice(0, 40).map((m) => {
               const isEntrada = m.tipo === 'ENTRADA' || m.tipo === 'DEVOLUCAO';
+              const isAvaria = m.motivo?.toLowerCase().includes('avaria');
               const Icon = isEntrada ? ArrowUpRight : ArrowDownRight;
-              const cor = isEntrada ? colors.success : colors.danger;
+              const cor = isAvaria ? colors.secondary : isEntrada ? colors.success : colors.danger;
               const dataFormatada = new Date(m.data).toLocaleString('pt-BR');
 
               return (
@@ -326,7 +316,7 @@ export const EstoqueScreen: React.FC = () => {
                     <Text style={[styles.auditMotivo, { color: colors.text }]} numberOfLines={2}>
                       {m.motivo || `${m.tipo} de estoque`}
                     </Text>
-                    <Text style={{ fontSize: 11, color: colors.textMuted }}>{dataFormatada}</Text>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>{dataFormatada}</Text>
                   </View>
                   <Text style={[styles.auditQtd, { color: cor }]}>
                     {isEntrada ? '+' : '-'}
@@ -399,9 +389,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 6,
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
   },
   primaryActionText: {
     color: '#fff',
@@ -413,19 +403,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
     borderWidth: 1,
-    gap: 6,
+    gap: 8,
   },
   secondaryActionText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    marginBottom: 14,
   },
   kpiCard: {
     width: '48.5%',
@@ -434,34 +425,55 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   kpiNum: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '900',
-    marginVertical: 4,
+    marginVertical: 2,
   },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  loteCardItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: 12,
+  balanceCard: {
+    padding: 16,
+    borderRadius: 16,
     borderWidth: 1,
+    marginBottom: 14,
   },
-  loteItemAno: {
-    fontSize: 15,
+  balanceTitle: {
+    fontSize: 16,
     fontWeight: '800',
   },
-  statusTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  badgePercent: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  progressTrack: {
+    height: 12,
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginVertical: 14,
+  },
+  progressFill: {
+    height: '100%',
     borderRadius: 6,
   },
-  loteItemQtd: {
-    fontSize: 17,
-    fontWeight: '900',
+  balanceLegendRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  infoBox: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  infoBoxTitle: {
+    fontSize: 13,
+    fontWeight: '800',
   },
   produtoCard: {
     flexDirection: 'row',
@@ -482,14 +494,14 @@ const styles = StyleSheet.create({
   auditCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: 14,
     borderWidth: 1,
-    gap: 10,
+    gap: 12,
   },
   auditIcon: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',

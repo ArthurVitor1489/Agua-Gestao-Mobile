@@ -12,68 +12,65 @@ import {
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { EstoqueService } from '../../database/dbService';
-import { EstoqueGarrafao, StatusGarrafao } from '../../database/models';
+import { EstoqueGarrafao } from '../../database/models';
 import { HapticService } from '../../services/hapticService';
-import { X, ArrowRightLeft, Check, AlertOctagon } from 'lucide-react-native';
+import { X, AlertTriangle, Check, Minus, Plus } from 'lucide-react-native';
 
 interface MovimentarGarrafaModalProps {
   visible: boolean;
-  garrafoes: EstoqueGarrafao[];
+  garrafoes?: EstoqueGarrafao[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
 export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
   visible,
-  garrafoes,
   onClose,
   onSuccess,
 }) => {
   const { colors } = useTheme();
-  const [selectedOrigemId, setSelectedOrigemId] = useState<string>('');
-  const [statusDestino, setStatusDestino] = useState<StatusGarrafao>('DANIFICADO');
+
+  const [tipoVasilhame, setTipoVasilhame] = useState('Galão 20L');
+  const [situacaoOrigem, setSituacaoOrigem] = useState<'CHEIO' | 'VAZIO'>('CHEIO');
   const [quantidade, setQuantidade] = useState('1');
-  const [motivo, setMotivo] = useState('');
+  const [localAvaria, setLocalAvaria] = useState('Translado no Centro de Distribuição (CD)');
+  const [observacao, setObservacao] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Filtrar apenas lotes com saldo > 0
-  const lotesDisponiveis = garrafoes.filter((g) => g.quantidade > 0);
+  const alterarQtd = (delta: number) => {
+    HapticService.light();
+    const atual = parseInt(quantidade, 10) || 1;
+    const nova = Math.max(1, atual + delta);
+    setQuantidade(String(nova));
+  };
 
   const handleSalvar = async () => {
     const qtd = parseInt(quantidade, 10);
-    const origem = garrafoes.find((g) => g.id === selectedOrigemId);
-
-    if (!origem) {
-      Alert.alert('Atenção', 'Selecione o lote de origem dos vasilhames.');
-      return;
-    }
     if (!qtd || qtd <= 0) {
       Alert.alert('Atenção', 'Informe uma quantidade válida maior que zero.');
-      return;
-    }
-    if (qtd > origem.quantidade) {
-      Alert.alert('Atenção', `Quantidade informada excede o saldo disponível (${origem.quantidade}).`);
       return;
     }
 
     try {
       setSubmitting(true);
       await HapticService.medium();
-      EstoqueService.movimentarGarrafa({
-        anoFabricacao: origem.anoFabricacao,
-        statusOrigem: origem.status,
-        statusDestino,
+
+      EstoqueService.registrarAvaria({
+        tipoVasilhame,
+        situacaoOrigem,
         quantidade: qtd,
-        motivo: motivo.trim() || undefined,
+        localAvaria,
+        observacao: observacao.trim() || undefined,
+        produtoId: tipoVasilhame.includes('20L') ? 'prod-galao-20l' : undefined,
       });
 
       await HapticService.success();
       setQuantidade('1');
-      setMotivo('');
+      setObservacao('');
       onSuccess();
     } catch (e: any) {
       await HapticService.error();
-      Alert.alert('Erro', e.message || 'Falha ao movimentar vasilhames');
+      Alert.alert('Erro', e.message || 'Falha ao registrar avaria');
     } finally {
       setSubmitting(false);
     }
@@ -85,11 +82,11 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
         <View style={[styles.container, { backgroundColor: colors.card }]}>
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <ArrowRightLeft size={22} color={colors.secondary} />
+              <AlertTriangle size={22} color={colors.secondary} />
               <View>
-                <Text style={[styles.title, { color: colors.text }]}>Movimentação & Avarias</Text>
+                <Text style={[styles.title, { color: colors.text }]}>Registrar Avaria / Quebra</Text>
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                  Transferência de status de vasilhames
+                  Baixa de garrafão danificado no CD ou transporte
                 </Text>
               </View>
             </View>
@@ -99,55 +96,16 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            {/* Lote de Origem */}
-            <Text style={[styles.label, { color: colors.text }]}>1. Selecione o Lote de Origem:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {lotesDisponiveis.map((lote) => {
-                  const isSel = selectedOrigemId === lote.id;
-                  return (
-                    <TouchableOpacity
-                      key={lote.id}
-                      style={[
-                        styles.loteCard,
-                        {
-                          backgroundColor: isSel ? colors.primaryLight : colors.surface,
-                          borderColor: isSel ? colors.primary : colors.border,
-                        },
-                      ]}
-                      onPress={() => {
-                        HapticService.light();
-                        setSelectedOrigemId(lote.id);
-                      }}
-                    >
-                      <Text style={[styles.loteAno, { color: colors.text }]}>Ano {lote.anoFabricacao}</Text>
-                      <Text style={{ fontSize: 12, color: colors.primary, fontWeight: 'bold' }}>
-                        {lote.status} ({lote.quantidade} un)
-                      </Text>
-                      <Text style={{ fontSize: 11, color: colors.textMuted }}>Val: {lote.anoValidade}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
-
-            {/* Situação de Destino */}
-            <Text style={[styles.label, { color: colors.text }]}>2. Nova Situação de Destino:</Text>
-            <View style={styles.destinosGrid}>
-              {[
-                { id: 'DANIFICADO', label: 'Danificado / Trincado' },
-                { id: 'QUEBRADO', label: 'Quebrado / Perda Total' },
-                { id: 'VENCIDO', label: 'Vencido (ANP)' },
-                { id: 'DESCARTADO', label: 'Descarte / Baixa Definitiva' },
-                { id: 'VAZIO', label: 'Retorno para Vazio' },
-                { id: 'CHEIO', label: 'Retorno para Cheio' },
-              ].map((d) => {
-                const isSel = statusDestino === d.id;
+            {/* 1. Tipo do Vasilhame */}
+            <Text style={[styles.label, { color: colors.text }]}>1. Qual vasilhame quebrou / danificou?</Text>
+            <View style={styles.tipoRow}>
+              {['Galão 20L', 'Galão 10L', 'Botijão P13'].map((item) => {
+                const isSel = tipoVasilhame === item;
                 return (
                   <TouchableOpacity
-                    key={d.id}
+                    key={item}
                     style={[
-                      styles.destinoBtn,
+                      styles.tipoBtn,
                       {
                         backgroundColor: isSel ? colors.secondary : colors.surface,
                         borderColor: isSel ? colors.secondary : colors.border,
@@ -155,50 +113,167 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
                     ]}
                     onPress={() => {
                       HapticService.light();
-                      setStatusDestino(d.id as StatusGarrafao);
+                      setTipoVasilhame(item);
                     }}
                   >
                     <Text
                       style={[
-                        styles.destinoText,
+                        styles.tipoBtnText,
                         { color: isSel ? '#fff' : colors.text, fontWeight: isSel ? '800' : '600' },
                       ]}
                     >
-                      {d.label}
+                      {item}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            {/* Quantidade */}
+            {/* 2. Situação no momento da quebra */}
             <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>
-              3. Quantidade de Garrafões:
+              2. O garrafão estava cheio ou vazio quando danificou?
             </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
-              ]}
-              keyboardType="numeric"
-              placeholder="1"
-              value={quantidade}
-              onChangeText={setQuantidade}
-            />
+            <View style={styles.estadoRow}>
+              <TouchableOpacity
+                style={[
+                  styles.estadoBtn,
+                  {
+                    backgroundColor: situacaoOrigem === 'CHEIO' ? '#fee2e2' : colors.surface,
+                    borderColor: situacaoOrigem === 'CHEIO' ? colors.danger : colors.border,
+                  },
+                ]}
+                onPress={() => {
+                  HapticService.light();
+                  setSituacaoOrigem('CHEIO');
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '800',
+                    color: situacaoOrigem === 'CHEIO' ? colors.danger : colors.text,
+                  }}
+                >
+                  🟢 Estava Cheio
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                  Perda da água + vasilhame
+                </Text>
+              </TouchableOpacity>
 
-            {/* Motivo */}
+              <TouchableOpacity
+                style={[
+                  styles.estadoBtn,
+                  {
+                    backgroundColor: situacaoOrigem === 'VAZIO' ? '#e0f2fe' : colors.surface,
+                    borderColor: situacaoOrigem === 'VAZIO' ? colors.primary : colors.border,
+                  },
+                ]}
+                onPress={() => {
+                  HapticService.light();
+                  setSituacaoOrigem('VAZIO');
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '800',
+                    color: situacaoOrigem === 'VAZIO' ? colors.primary : colors.text,
+                  }}
+                >
+                  🔵 Estava Vazio
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                  Perda apenas do vasilhame
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 3. Onde ocorreu a avaria? */}
             <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>
-              Motivo do Registro:
+              3. Onde ocorreu a quebra / avaria?
+            </Text>
+            <View style={styles.localGrid}>
+              {[
+                { id: 'Transporte da Fábrica', label: '🚛 Transporte da Fábrica (Caminhão)' },
+                { id: 'Translado no Centro de Distribuição (CD)', label: '🏢 Translado no CD / Pátio' },
+                { id: 'Rota de Entrega ao Cliente', label: '🛵 Rota de Entrega (Moto/Carroceria)' },
+                { id: 'Furo / Microfissura (Vazando)', label: '💧 Garrafão Furado / Vazamento' },
+                { id: 'Queda Acidental / Descarte', label: '💥 Queda Acidental / Descarte' },
+              ].map((loc) => {
+                const isSel = localAvaria === loc.id;
+                return (
+                  <TouchableOpacity
+                    key={loc.id}
+                    style={[
+                      styles.localBtn,
+                      {
+                        backgroundColor: isSel ? colors.primaryLight : colors.surface,
+                        borderColor: isSel ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => {
+                      HapticService.light();
+                      setLocalAvaria(loc.id);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.localText,
+                        { color: isSel ? colors.primary : colors.text, fontWeight: isSel ? '800' : '600' },
+                      ]}
+                    >
+                      {loc.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* 4. Quantidade de Garrafões Danificados */}
+            <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>
+              4. Quantidade de Garrafões Danificados:
+            </Text>
+            <View style={styles.qtdBox}>
+              <TouchableOpacity
+                style={[styles.qtdControlBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => alterarQtd(-1)}
+              >
+                <Minus size={18} color={colors.text} />
+              </TouchableOpacity>
+
+              <TextInput
+                style={[
+                  styles.qtdInput,
+                  { backgroundColor: colors.surface, color: colors.text, borderColor: colors.secondary },
+                ]}
+                keyboardType="numeric"
+                value={quantidade}
+                onChangeText={setQuantidade}
+                selectTextOnFocus
+              />
+
+              <TouchableOpacity
+                style={[styles.qtdControlBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => alterarQtd(1)}
+              >
+                <Plus size={18} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Observações */}
+            <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>
+              Detalhe / Motivo da Perda (Opcional):
             </Text>
             <TextInput
               style={[
                 styles.input,
                 { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
               ]}
-              placeholder="Ex: Furo na base durante entrega, gargalo trincado, etc."
+              placeholder="Ex: Furo na base durante frenagem, trincou gargalo ao descarregar..."
               placeholderTextColor={colors.textMuted}
-              value={motivo}
-              onChangeText={setMotivo}
+              value={observacao}
+              onChangeText={setObservacao}
             />
 
             <View style={{ height: 20 }} />
@@ -216,7 +291,7 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
               ) : (
                 <>
                   <Check size={20} color="#fff" />
-                  <Text style={styles.confirmBtnText}>Registrar Movimentação</Text>
+                  <Text style={styles.confirmBtnText}>Confirmar Baixa por Avaria</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -236,7 +311,7 @@ const styles = StyleSheet.create({
   container: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '90%',
+    maxHeight: '92%',
     paddingBottom: 16,
   },
   header: {
@@ -257,34 +332,68 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     marginBottom: 8,
   },
-  loteCard: {
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    minWidth: 120,
-  },
-  loteAno: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  destinosGrid: {
+  tipoRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
   },
-  destinoBtn: {
-    paddingHorizontal: 12,
+  tipoBtn: {
+    flex: 1,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    minWidth: '48%',
+    alignItems: 'center',
   },
-  destinoText: {
-    fontSize: 12,
+  tipoBtnText: {
+    fontSize: 13,
+  },
+  estadoRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  estadoBtn: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  localGrid: {
+    gap: 8,
+  },
+  localBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  localText: {
+    fontSize: 13,
+  },
+  qtdBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  qtdControlBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtdInput: {
+    width: 80,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 2,
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '900',
   },
   input: {
     height: 46,
@@ -292,7 +401,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 12,
     fontSize: 14,
-    fontWeight: 'bold',
   },
   footer: {
     padding: 16,

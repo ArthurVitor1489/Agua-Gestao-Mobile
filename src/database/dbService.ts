@@ -157,23 +157,48 @@ export const ProdutosService = {
 };
 
 // ----------------------------------------------------
-// 3. SERVIÇO DE ESTOQUE E GARRAFÕES (ANP 3 ANOS)
+// 3. SERVIÇO DE ESTOQUE E VASILHAMES (OPERAÇÃO REAL)
 // ----------------------------------------------------
 export const EstoqueService = {
   getGarrafoes(): EstoqueGarrafao[] {
     const db = getDatabase();
-    const rows = db.getAllSync<any>('SELECT * FROM estoque_garrafoes ORDER BY anoFabricacao DESC, status ASC');
+    const rows = db.getAllSync<any>('SELECT * FROM estoque_garrafoes ORDER BY status ASC');
     return rows.map((r) => ({
       id: r.id,
       empresaId: 'local',
-      anoFabricacao: r.anoFabricacao,
-      anoValidade: r.anoValidade,
+      anoFabricacao: r.anoFabricacao || 2024,
+      anoValidade: r.anoValidade || 2027,
       quantidade: r.quantidade,
       status: r.status,
       observacoes: r.observacoes,
       createdAt: r.createdAt,
       updatedAt: r.createdAt,
     }));
+  },
+
+  getResumoVasilhames() {
+    const db = getDatabase();
+    const rows = db.getAllSync<any>('SELECT status, SUM(quantidade) as total FROM estoque_garrafoes GROUP BY status');
+    let cheios = 0;
+    let vazios = 0;
+    let avarias = 0;
+
+    for (const r of rows) {
+      if (r.status === 'CHEIO') {
+        cheios += r.total || 0;
+      } else if (r.status === 'VAZIO' || r.status === 'DISPONIVEL') {
+        vazios += r.total || 0;
+      } else if (r.status === 'DANIFICADO' || r.status === 'QUEBRADO' || r.status === 'VENCIDO') {
+        avarias += r.total || 0;
+      }
+    }
+
+    return {
+      cheios,
+      vazios,
+      avarias,
+      totalGeral: cheios + vazios + avarias,
+    };
   },
 
   getMovimentacoes(): MovimentacaoEstoque[] {
@@ -191,82 +216,185 @@ export const EstoqueService = {
     }));
   },
 
-  adicionarCargaEnvase(produtoId: string, quantidade: number, anoFabricacao?: number): void {
+  // 1. CHEGADA DE CARGA DA FÁBRICA (Troca de vazios por cheios ou entrada direta)
+  registrarCargaFabrica(params: {
+    produtoId: string;
+    qtdCheiosRecebidos: number;
+    qtdVaziosDevolvidos: number;
+    observacao?: string;
+  }): void {
     const db = getDatabase();
     const now = new Date().toISOString();
-    const ano = anoFabricacao || new Date().getFullYear();
 
-    // 1. Atualizar estoque do produto
-    db.runSync('UPDATE produtos SET estoqueAtual = estoqueAtual + ? WHERE id = ?', [quantidade, produtoId]);
+    // 1. Atualizar estoque do produto (adiciona cheios)
+    if (params.qtdCheiosRecebidos > 0) {
+      db.runSync('UPDATE produtos SET estoqueAtual = estoqueAtual + ? WHERE id = ?', [
+        params.qtdCheiosRecebidos,
+        params.produtoId,
+      ]);
 
-    // 2. Atualizar ou inserir lote de garrafão cheio
-    const existing = db.getFirstSync<any>(
-      'SELECT id, quantidade FROM estoque_garrafoes WHERE anoFabricacao = ? AND status = ?',
-      [ano, 'CHEIO']
-    );
-
-    if (existing) {
-      db.runSync('UPDATE estoque_garrafoes SET quantidade = quantidade + ? WHERE id = ?', [quantidade, existing.id]);
-    } else {
-      db.runSync(
-        `INSERT INTO estoque_garrafoes (id, anoFabricacao, anoValidade, quantidade, status, observacoes, createdAt)
-         VALUES (?, ?, ?, ?, 'CHEIO', 'Carga de fábrica', ?)`,
-        [generateId(), ano, ano + 3, quantidade, now]
+      // Atualizar saldo de garrafões CHEIOS
+      const existingCheio = db.getFirstSync<any>(
+        "SELECT id FROM estoque_garrafoes WHERE status = 'CHEIO' ORDER BY quantidade DESC LIMIT 1"
       );
+      if (existingCheio) {
+        db.runSync('UPDATE estoque_garrafoes SET quantidade = quantidade + ? WHERE id = ?', [
+          params.qtdCheiosRecebidos,
+          existingCheio.id,
+        ]);
+      } else {
+        db.runSync(
+          `INSERT INTO estoque_garrafoes (id, anoFabricacao, anoValidade, quantidade, status, observacoes, createdAt)
+           VALUES (?, 2024, 2027, ?, 'CHEIO', 'Carga de fábrica', ?)`,
+          [generateId(), params.qtdCheiosRecebidos, now]
+        );
+      }
     }
 
-    // 3. Registrar movimentação
-    const prod = db.getFirstSync<any>('SELECT nome FROM produtos WHERE id = ?', [produtoId]);
+    // 2. Subtrair vazios devolvidos à fábrica
+    if (params.qtdVaziosDevolvidos > 0) {
+      const existingVazio = db.getFirstSync<any>(
+        "SELECT id, quantidade FROM estoque_garrafoes WHERE status = 'VAZIO' ORDER BY quantidade DESC LIMIT 1"
+      );
+      if (existingVazio) {
+        db.runSync('UPDATE estoque_garrafoes SET quantidade = MAX(0, quantidade - ?) WHERE id = ?', [
+          params.qtdVaziosDevolvidos,
+          existingVazio.id,
+        ]);
+      }
+    }
+
+    // 3. Registrar auditoria
+    const prod = db.getFirstSync<any>('SELECT nome FROM produtos WHERE id = ?', [params.produtoId]);
+    const prodNome = prod?.nome || 'Galão de Água 20L';
+    const motivoTexto = `Carga de Fábrica: +${params.qtdCheiosRecebidos} Cheios, -${params.qtdVaziosDevolvidos} Vazios devolvidos${
+      params.observacao ? ` (${params.observacao})` : ''
+    }`;
+
     db.runSync(
       `INSERT INTO movimentacoes_estoque (id, produtoId, produtoNome, tipo, quantidade, motivo, data)
-       VALUES (?, ?, ?, 'ENTRADA', ?, 'Carga de fábrica / Envase', ?)`,
-      [generateId(), produtoId, prod?.nome || 'Galão de Água', quantidade, now]
+       VALUES (?, ?, ?, 'ENTRADA', ?, ?, ?)`,
+      [generateId(), params.produtoId, prodNome, params.qtdCheiosRecebidos, motivoTexto, now]
     );
   },
 
+  // Mantido para compatibilidade com chamadas legadas
+  adicionarCargaEnvase(produtoId: string, quantidade: number, anoFabricacao?: number): void {
+    this.registrarCargaFabrica({
+      produtoId,
+      qtdCheiosRecebidos: quantidade,
+      qtdVaziosDevolvidos: quantidade, // Troca padrão 1 por 1
+      observacao: 'Carga de Fábrica (Padrão)',
+    });
+  },
+
+  // 2. REGISTRO DE AVARIAS E QUEBRAS (Transporte da fábrica, translado no CD, etc.)
+  registrarAvaria(params: {
+    tipoVasilhame: string; // Ex: 'Galão 20L' ou 'Botijão P13'
+    situacaoOrigem: 'CHEIO' | 'VAZIO';
+    quantidade: number;
+    localAvaria: string; // Ex: 'Transporte da Fábrica', 'Translado no Centro de Distribuição (CD)'
+    observacao?: string;
+    produtoId?: string;
+  }): void {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+
+    // 1. Subtrair da situação de origem
+    const origemRow = db.getFirstSync<any>(
+      'SELECT id, quantidade FROM estoque_garrafoes WHERE status = ? ORDER BY quantidade DESC LIMIT 1',
+      [params.situacaoOrigem]
+    );
+
+    if (origemRow) {
+      db.runSync('UPDATE estoque_garrafoes SET quantidade = MAX(0, quantidade - ?) WHERE id = ?', [
+        params.quantidade,
+        origemRow.id,
+      ]);
+    }
+
+    // 2. Se estava CHEIO, também perdeu o conteúdo (água/gás), debita do estoque de produtos
+    if (params.situacaoOrigem === 'CHEIO') {
+      const prodId = params.produtoId || 'prod-galao-20l';
+      db.runSync('UPDATE produtos SET estoqueAtual = MAX(0, estoqueAtual - ?) WHERE id = ?', [
+        params.quantidade,
+        prodId,
+      ]);
+    }
+
+    // 3. Adicionar aos AVARIADOS
+    const destRow = db.getFirstSync<any>(
+      "SELECT id FROM estoque_garrafoes WHERE status = 'DANIFICADO' LIMIT 1"
+    );
+
+    if (destRow) {
+      db.runSync('UPDATE estoque_garrafoes SET quantidade = quantidade + ? WHERE id = ?', [
+        params.quantidade,
+        destRow.id,
+      ]);
+    } else {
+      db.runSync(
+        `INSERT INTO estoque_garrafoes (id, anoFabricacao, anoValidade, quantidade, status, observacoes, createdAt)
+         VALUES (?, 2024, 2027, ?, 'DANIFICADO', 'Avaria registrada', ?)`,
+        [generateId(), params.quantidade, now]
+      );
+    }
+
+    // 4. Registrar auditoria detalhada
+    const motivoAudit = `Avaria (${params.localAvaria}): ${params.quantidade}x ${params.tipoVasilhame} (${params.situacaoOrigem === 'CHEIO' ? 'Estava Cheio' : 'Estava Vazio'})${
+      params.observacao ? ` - ${params.observacao}` : ''
+    }`;
+
+    db.runSync(
+      `INSERT INTO movimentacoes_estoque (id, produtoId, produtoNome, tipo, quantidade, motivo, data)
+       VALUES (?, null, ?, 'AJUSTE', ?, ?, ?)`,
+      [generateId(), params.tipoVasilhame, params.quantidade, motivoAudit, now]
+    );
+  },
+
+  // Mantido para compatibilidade com chamadas antigas
   movimentarGarrafa(params: {
-    anoFabricacao: number;
+    anoFabricacao?: number;
     statusOrigem: string;
     statusDestino: string;
     quantidade: number;
     motivo?: string;
   }): void {
+    const isAvaria = params.statusDestino === 'DANIFICADO' || params.statusDestino === 'QUEBRADO';
+    if (isAvaria) {
+      this.registrarAvaria({
+        tipoVasilhame: 'Galão 20L',
+        situacaoOrigem: params.statusOrigem === 'CHEIO' ? 'CHEIO' : 'VAZIO',
+        quantidade: params.quantidade,
+        localAvaria: params.motivo || 'Translado no Centro de Distribuição (CD)',
+        observacao: params.motivo,
+      });
+      return;
+    }
+
     const db = getDatabase();
     const now = new Date().toISOString();
 
-    // Subtrair da origem
     db.runSync(
-      'UPDATE estoque_garrafoes SET quantidade = MAX(0, quantidade - ?) WHERE anoFabricacao = ? AND status = ?',
-      [params.quantidade, params.anoFabricacao, params.statusOrigem]
+      'UPDATE estoque_garrafoes SET quantidade = MAX(0, quantidade - ?) WHERE status = ?',
+      [params.quantidade, params.statusOrigem]
     );
 
-    // Somar no destino
-    const dest = db.getFirstSync<any>(
-      'SELECT id FROM estoque_garrafoes WHERE anoFabricacao = ? AND status = ?',
-      [params.anoFabricacao, params.statusDestino]
-    );
-
+    const dest = db.getFirstSync<any>('SELECT id FROM estoque_garrafoes WHERE status = ?', [params.statusDestino]);
     if (dest) {
       db.runSync('UPDATE estoque_garrafoes SET quantidade = quantidade + ? WHERE id = ?', [params.quantidade, dest.id]);
     } else {
       db.runSync(
         `INSERT INTO estoque_garrafoes (id, anoFabricacao, anoValidade, quantidade, status, observacoes, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [generateId(), params.anoFabricacao, params.anoFabricacao + 3, params.quantidade, params.statusDestino, params.motivo || '', now]
+         VALUES (?, 2024, 2027, ?, ?, ?, ?)`,
+        [generateId(), params.quantidade, params.statusDestino, params.motivo || '', now]
       );
     }
 
-    // Registrar auditoria
     db.runSync(
       `INSERT INTO movimentacoes_estoque (id, produtoId, produtoNome, tipo, quantidade, motivo, data)
        VALUES (?, null, ?, 'AJUSTE', ?, ?, ?)`,
-      [
-        generateId(),
-        `Garrafões ${params.anoFabricacao} (${params.statusOrigem} -> ${params.statusDestino})`,
-        params.quantidade,
-        params.motivo || 'Movimentação interna',
-        now,
-      ]
+      [generateId(), `Vasilhames (${params.statusOrigem} -> ${params.statusDestino})`, params.quantidade, params.motivo || 'Movimentação', now]
     );
   },
 };
