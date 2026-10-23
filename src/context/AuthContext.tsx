@@ -87,8 +87,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await HapticService.success();
       return { success: true };
     } catch (err: any) {
+      console.error('Erro detalhado no cadastro:', err);
       await HapticService.error();
-      return { success: false, error: err.message || 'Falha ao cadastrar distribuidora.' };
+      let errorMsg = err.message || 'Falha ao cadastrar distribuidora.';
+      if (errorMsg.includes('UNIQUE constraint failed') || errorMsg.includes('usuarios.email')) {
+        errorMsg = 'Este e-mail já está cadastrado. Por favor, faça login ou use outro e-mail.';
+      }
+      return { success: false, error: errorMsg };
     } finally {
       setIsLoading(false);
     }

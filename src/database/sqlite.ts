@@ -2,11 +2,15 @@ import * as SQLite from 'expo-sqlite';
 import { Platform } from 'react-native';
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
+let isInitialized = false;
 
 export const getDatabase = (): SQLite.SQLiteDatabase => {
   if (!dbInstance) {
     dbInstance = SQLite.openDatabaseSync('aguagestao_standalone.db');
+  }
+  if (!isInitialized) {
     initDatabase(dbInstance);
+    isInitialized = true;
   }
   return dbInstance;
 };
@@ -168,6 +172,19 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
       "DELETE FROM produtos WHERE categoria = 'AGUA_10L' OR categoria = 'GAS_P13' OR categoria = 'OUTROS' OR nome LIKE '%10L%' OR nome LIKE '%Gás%' OR nome LIKE '%P13%'"
     );
   } catch {}
+
+  // Migrações seguras de colunas caso o banco já existisse no aparelho
+  try { db.execSync('ALTER TABLE usuarios ADD COLUMN empresaNome TEXT;'); } catch {}
+  try { db.execSync("ALTER TABLE usuarios ADD COLUMN role TEXT DEFAULT 'ADMIN';"); } catch {}
+  try { db.execSync('ALTER TABLE configuracao ADD COLUMN trialStartDate TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE configuracao ADD COLUMN isSubscribed INTEGER DEFAULT 0;'); } catch {}
+  try { db.execSync("ALTER TABLE configuracao ADD COLUMN plano TEXT DEFAULT 'TRIAL_14_DIAS';"); } catch {}
+  try { db.execSync('ALTER TABLE configuracao ADD COLUMN chavePix TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE configuracao ADD COLUMN cidade TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE configuracao ADD COLUMN estado TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE configuracao ADD COLUMN whatsapp TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE configuracao ADD COLUMN telefone TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE clientes ADD COLUMN precosEspeciaisJson TEXT;'); } catch {}
 };
 
 const seedInitialData = (db: SQLite.SQLiteDatabase) => {

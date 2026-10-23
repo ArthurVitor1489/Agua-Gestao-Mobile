@@ -49,26 +49,55 @@ export const LocalAuthService = {
     const now = new Date().toISOString();
     const id = generateId();
 
-    // 1. Salvar configuração da distribuidora (ativa os 14 dias de teste)
-    ConfigService.saveConfig({
-      nomeDistribuidora: payload.nomeDistribuidora,
-      whatsapp: payload.whatsapp || '',
-      cidade: payload.cidade || '',
-      estado: payload.estado || '',
-    });
+    // 0. Garantir criação e migração defensiva da tabela de usuários
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS usuarios (
+        id TEXT PRIMARY KEY,
+        nome TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        senha TEXT NOT NULL,
+        role TEXT DEFAULT 'ADMIN',
+        empresaId TEXT,
+        empresaNome TEXT,
+        ativo INTEGER DEFAULT 1,
+        createdAt TEXT NOT NULL
+      );
+    `);
+    try { db.execSync('ALTER TABLE usuarios ADD COLUMN empresaNome TEXT;'); } catch {}
+    try { db.execSync("ALTER TABLE usuarios ADD COLUMN role TEXT DEFAULT 'ADMIN';"); } catch {}
 
-    // 2. Inserir usuário no banco
+    const emailNorm = payload.email.toLowerCase().trim();
+
+    // 1. Verificar se já existe conta com esse e-mail
+    const existing = db.getFirstSync<any>('SELECT id FROM usuarios WHERE email = ?', [emailNorm]);
+    if (existing) {
+      throw new Error('Já existe uma conta com este e-mail. Faça login ou utilize outro e-mail.');
+    }
+
+    // 2. Salvar configuração da distribuidora (ativa os 14 dias de teste)
+    try {
+      ConfigService.saveConfig({
+        nomeDistribuidora: payload.nomeDistribuidora,
+        whatsapp: payload.whatsapp || '',
+        cidade: payload.cidade || '',
+        estado: payload.estado || '',
+      });
+    } catch (e) {
+      console.warn('Erro ao salvar configuração inicial:', e);
+    }
+
+    // 3. Inserir usuário no banco
     db.runSync(
       `INSERT INTO usuarios (id, nome, email, senha, role, empresaId, empresaNome, ativo, createdAt)
        VALUES (?, ?, ?, ?, 'ADMIN', 'local', ?, 1, ?)`,
-      [id, payload.nome, payload.email.toLowerCase().trim(), payload.senha, payload.nomeDistribuidora, now]
+      [id, payload.nome, emailNorm, payload.senha, payload.nomeDistribuidora, now]
     );
 
     return {
       id,
       empresaId: 'local',
       nome: payload.nome,
-      email: payload.email.toLowerCase().trim(),
+      email: emailNorm,
       role: 'EMPRESA_ADMIN',
       ativo: true,
       empresa: {
@@ -86,64 +115,100 @@ export const LocalAuthService = {
   },
 
   login(email: string, pass: string): User | null {
-    const db = getDatabase();
-    const row = db.getFirstSync<any>(
-      'SELECT * FROM usuarios WHERE email = ? AND senha = ? AND ativo = 1',
-      [email.toLowerCase().trim(), pass]
-    );
-    if (!row) return null;
+    try {
+      const db = getDatabase();
+      db.execSync(`
+        CREATE TABLE IF NOT EXISTS usuarios (
+          id TEXT PRIMARY KEY,
+          nome TEXT NOT NULL,
+          email TEXT UNIQUE NOT NULL,
+          senha TEXT NOT NULL,
+          role TEXT DEFAULT 'ADMIN',
+          empresaId TEXT,
+          empresaNome TEXT,
+          ativo INTEGER DEFAULT 1,
+          createdAt TEXT NOT NULL
+        );
+      `);
+      const row = db.getFirstSync<any>(
+        'SELECT * FROM usuarios WHERE email = ? AND senha = ? AND ativo = 1',
+        [email.toLowerCase().trim(), pass]
+      );
+      if (!row) return null;
 
-    const cfg = ConfigService.getConfig();
-    const now = new Date().toISOString();
+      const cfg = ConfigService.getConfig();
+      const now = new Date().toISOString();
 
-    return {
-      id: row.id,
-      empresaId: row.empresaId || 'local',
-      nome: row.nome,
-      email: row.email,
-      role: (row.role as any) || 'EMPRESA_ADMIN',
-      ativo: Boolean(row.ativo),
-      empresa: {
-        id: 'local',
-        nome: cfg?.nomeDistribuidora || row.empresaNome || 'Minha Distribuidora',
-        cidade: cfg?.cidade,
-        estado: cfg?.estado,
-        ativo: true,
-        createdAt: now,
-        updatedAt: now,
-      } as any,
-      createdAt: row.createdAt,
-      updatedAt: row.createdAt,
-    };
+      return {
+        id: row.id,
+        empresaId: row.empresaId || 'local',
+        nome: row.nome,
+        email: row.email,
+        role: (row.role as any) || 'EMPRESA_ADMIN',
+        ativo: Boolean(row.ativo),
+        empresa: {
+          id: 'local',
+          nome: cfg?.nomeDistribuidora || row.empresaNome || 'Minha Distribuidora',
+          cidade: cfg?.cidade,
+          estado: cfg?.estado,
+          ativo: true,
+          createdAt: now,
+          updatedAt: now,
+        } as any,
+        createdAt: row.createdAt,
+        updatedAt: row.createdAt,
+      };
+    } catch (e) {
+      console.warn('Erro ao consultar login:', e);
+      return null;
+    }
   },
 
   getUsuarioById(id: string): User | null {
-    const db = getDatabase();
-    const row = db.getFirstSync<any>('SELECT * FROM usuarios WHERE id = ? AND ativo = 1', [id]);
-    if (!row) return null;
+    try {
+      const db = getDatabase();
+      db.execSync(`
+        CREATE TABLE IF NOT EXISTS usuarios (
+          id TEXT PRIMARY KEY,
+          nome TEXT NOT NULL,
+          email TEXT UNIQUE NOT NULL,
+          senha TEXT NOT NULL,
+          role TEXT DEFAULT 'ADMIN',
+          empresaId TEXT,
+          empresaNome TEXT,
+          ativo INTEGER DEFAULT 1,
+          createdAt TEXT NOT NULL
+        );
+      `);
+      const row = db.getFirstSync<any>('SELECT * FROM usuarios WHERE id = ? AND ativo = 1', [id]);
+      if (!row) return null;
 
-    const cfg = ConfigService.getConfig();
-    const now = new Date().toISOString();
+      const cfg = ConfigService.getConfig();
+      const now = new Date().toISOString();
 
-    return {
-      id: row.id,
-      empresaId: row.empresaId || 'local',
-      nome: row.nome,
-      email: row.email,
-      role: (row.role as any) || 'EMPRESA_ADMIN',
-      ativo: Boolean(row.ativo),
-      empresa: {
-        id: 'local',
-        nome: cfg?.nomeDistribuidora || row.empresaNome || 'Minha Distribuidora',
-        cidade: cfg?.cidade,
-        estado: cfg?.estado,
-        ativo: true,
-        createdAt: now,
-        updatedAt: now,
-      } as any,
-      createdAt: row.createdAt,
-      updatedAt: row.createdAt,
-    };
+      return {
+        id: row.id,
+        empresaId: row.empresaId || 'local',
+        nome: row.nome,
+        email: row.email,
+        role: (row.role as any) || 'EMPRESA_ADMIN',
+        ativo: Boolean(row.ativo),
+        empresa: {
+          id: 'local',
+          nome: cfg?.nomeDistribuidora || row.empresaNome || 'Minha Distribuidora',
+          cidade: cfg?.cidade,
+          estado: cfg?.estado,
+          ativo: true,
+          createdAt: now,
+          updatedAt: now,
+        } as any,
+        createdAt: row.createdAt,
+        updatedAt: row.createdAt,
+      };
+    } catch (e) {
+      console.warn('Erro ao obter usuario por ID:', e);
+      return null;
+    }
   },
 };
 
@@ -175,6 +240,32 @@ export const ConfigService = {
     estado?: string;
   }): AppConfig {
     const db = getDatabase();
+
+    // Garantir criação e migração defensiva da tabela configuracao
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS configuracao (
+        id TEXT PRIMARY KEY,
+        nomeDistribuidora TEXT NOT NULL,
+        telefone TEXT,
+        whatsapp TEXT,
+        chavePix TEXT,
+        cidade TEXT,
+        estado TEXT,
+        trialStartDate TEXT NOT NULL,
+        isSubscribed INTEGER DEFAULT 0,
+        plano TEXT DEFAULT 'TRIAL_14_DIAS',
+        createdAt TEXT NOT NULL
+      );
+    `);
+    try { db.execSync('ALTER TABLE configuracao ADD COLUMN trialStartDate TEXT;'); } catch {}
+    try { db.execSync('ALTER TABLE configuracao ADD COLUMN isSubscribed INTEGER DEFAULT 0;'); } catch {}
+    try { db.execSync("ALTER TABLE configuracao ADD COLUMN plano TEXT DEFAULT 'TRIAL_14_DIAS';"); } catch {}
+    try { db.execSync('ALTER TABLE configuracao ADD COLUMN chavePix TEXT;'); } catch {}
+    try { db.execSync('ALTER TABLE configuracao ADD COLUMN cidade TEXT;'); } catch {}
+    try { db.execSync('ALTER TABLE configuracao ADD COLUMN estado TEXT;'); } catch {}
+    try { db.execSync('ALTER TABLE configuracao ADD COLUMN whatsapp TEXT;'); } catch {}
+    try { db.execSync('ALTER TABLE configuracao ADD COLUMN telefone TEXT;'); } catch {}
+
     const existing = this.getConfig();
     const now = new Date().toISOString();
 
