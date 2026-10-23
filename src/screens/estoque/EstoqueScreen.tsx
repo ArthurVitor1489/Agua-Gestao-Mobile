@@ -154,7 +154,7 @@ export const EstoqueScreen: React.FC = () => {
               { color: abaAtiva === 'auditoria' ? colors.primary : colors.textMuted, fontWeight: abaAtiva === 'auditoria' ? '800' : '600' },
             ]}
           >
-            Extrato de Movimentações
+            Extrato
           </Text>
         </TouchableOpacity>
       </View>
@@ -434,14 +434,17 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
+    paddingHorizontal: 6,
   },
   tabItem: {
     flex: 1,
     paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   tabText: {
     fontSize: 13,
+    textAlign: 'center',
   },
   contentScroll: {
     padding: 16,

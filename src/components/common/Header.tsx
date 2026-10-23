@@ -110,16 +110,6 @@ export const Header: React.FC = () => {
         </TouchableOpacity>
       )}
 
-      {/* Badge de Assinante Pro */}
-      {isSubscribed && (
-        <View style={[styles.proActiveBanner, { backgroundColor: '#dcfce7', borderColor: '#86efac' }]}>
-          <ShieldCheck size={14} color="#15803d" />
-          <Text style={{ fontSize: 11, fontWeight: '800', color: '#15803d' }}>
-            LICENÇA PRO ATIVA • GOOGLE PLAY
-          </Text>
-        </View>
-      )}
-
       {/* Modal de Configurações e Gestão de Produtos */}
       <ConfiguracoesModal
         visible={showConfigModal}
