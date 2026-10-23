@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
@@ -35,16 +36,39 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
   const { colors } = useTheme();
   const { login, loginWithBiometrics, isLoading } = useAuth();
   const insets = useSafeAreaInsets();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [hasBiometrics, setHasBiometrics] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
     checkBiometrics();
+
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
   }, []);
+
+  const scrollToInput = (yOffset: number) => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: yOffset, animated: true });
+    }, 120);
+  };
 
   const checkBiometrics = async () => {
     const supported = await AuthService.isBiometricsSupported();
@@ -85,15 +109,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={[
           styles.scrollContainer,
           {
-            paddingTop: Math.max(insets.top, 24) + 20,
-            paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 32 : 24) + 20,
+            paddingTop: Math.max(insets.top, 24) + 16,
+            paddingBottom:
+              keyboardHeight > 0
+                ? keyboardHeight + 60
+                : Math.max(insets.bottom, Platform.OS === 'android' ? 32 : 24) + 30,
           },
         ]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
         {/* Marca & Logo */}
         <View style={styles.brandBox}>
@@ -144,6 +174,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
               secureTextEntry={!mostrarSenha}
               value={senha}
               onChangeText={setSenha}
+              onFocus={() => scrollToInput(150)}
             />
             <TouchableOpacity onPress={() => setMostrarSenha(!mostrarSenha)} style={{ padding: 6 }}>
               {mostrarSenha ? (
@@ -203,8 +234,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
 const styles = StyleSheet.create({
   scrollContainer: {
     paddingHorizontal: 20,
-    justifyContent: 'center',
-    minHeight: '100%',
+    flexGrow: 1,
   },
   brandBox: {
     alignItems: 'center',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Keyboard,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -37,6 +38,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
   const { colors } = useTheme();
   const { register } = useAuth();
   const insets = useSafeAreaInsets();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const [nome, setNome] = useState('');
   const [nomeDistribuidora, setNomeDistribuidora] = useState('');
@@ -47,6 +49,30 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const scrollToInput = (yOffset: number) => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: yOffset, animated: true });
+    }, 120);
+  };
 
   const handleRegister = async () => {
     if (!nome.trim() || !email.trim() || !senha.trim() || !nomeDistribuidora.trim()) {
@@ -100,15 +126,21 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={[
           styles.scrollContainer,
           {
-            paddingTop: Math.max(insets.top, 24) + 16,
-            paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 32 : 24) + 20,
+            paddingTop: Math.max(insets.top, 24) + 12,
+            paddingBottom:
+              keyboardHeight > 0
+                ? keyboardHeight + 80
+                : Math.max(insets.bottom, Platform.OS === 'android' ? 32 : 24) + 40,
           },
         ]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
         {/* Marca & Logo */}
         <View style={styles.brandBox}>
@@ -169,6 +201,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
               keyboardType="phone-pad"
               value={whatsapp}
               onChangeText={setWhatsapp}
+              onFocus={() => scrollToInput(140)}
             />
           </View>
 
@@ -184,6 +217,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
                   placeholderTextColor={colors.textMuted}
                   value={cidade}
                   onChangeText={setCidade}
+                  onFocus={() => scrollToInput(220)}
                 />
               </View>
             </View>
@@ -199,6 +233,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
                   placeholderTextColor={colors.textMuted}
                   value={estado}
                   onChangeText={setEstado}
+                  onFocus={() => scrollToInput(220)}
                 />
               </View>
             </View>
@@ -217,6 +252,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
               autoCorrect={false}
               value={email}
               onChangeText={setEmail}
+              onFocus={() => scrollToInput(300)}
             />
           </View>
 
@@ -231,6 +267,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
               secureTextEntry={!mostrarSenha}
               value={senha}
               onChangeText={setSenha}
+              onFocus={() => scrollToInput(380)}
             />
             <TouchableOpacity onPress={() => setMostrarSenha(!mostrarSenha)} style={{ padding: 6 }}>
               {mostrarSenha ? (
@@ -274,8 +311,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
 const styles = StyleSheet.create({
   scrollContainer: {
     paddingHorizontal: 20,
-    justifyContent: 'center',
-    minHeight: '100%',
+    flexGrow: 1,
   },
   brandBox: {
     alignItems: 'center',
