@@ -31,7 +31,7 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
   const { colors } = useTheme();
 
   const [tipoVasilhame, setTipoVasilhame] = useState('Galão 20L');
-  const [situacaoOrigem, setSituacaoOrigem] = useState<'CHEIO' | 'VAZIO'>('CHEIO');
+  const situacaoOrigem = 'CHEIO';
   const [quantidade, setQuantidade] = useState('1');
   const [localAvaria, setLocalAvaria] = useState('Translado no Centro de Distribuição (CD)');
   const [observacao, setObservacao] = useState('');
@@ -119,69 +119,9 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
               </View>
             </View>
 
-            {/* 2. Situação no momento da quebra */}
+            {/* 2. Onde ocorreu a avaria? */}
             <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>
-              2. O garrafão estava cheio ou vazio quando danificou?
-            </Text>
-            <View style={styles.estadoRow}>
-              <TouchableOpacity
-                style={[
-                  styles.estadoBtn,
-                  {
-                    backgroundColor: situacaoOrigem === 'CHEIO' ? '#fee2e2' : colors.surface,
-                    borderColor: situacaoOrigem === 'CHEIO' ? colors.danger : colors.border,
-                  },
-                ]}
-                onPress={() => {
-                  HapticService.light();
-                  setSituacaoOrigem('CHEIO');
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: '800',
-                    color: situacaoOrigem === 'CHEIO' ? colors.danger : colors.text,
-                  }}
-                >
-                  🟢 Estava Cheio
-                </Text>
-                <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
-                  Perda da água + vasilhame
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.estadoBtn,
-                  {
-                    backgroundColor: situacaoOrigem === 'VAZIO' ? '#e0f2fe' : colors.surface,
-                    borderColor: situacaoOrigem === 'VAZIO' ? colors.primary : colors.border,
-                  },
-                ]}
-                onPress={() => {
-                  HapticService.light();
-                  setSituacaoOrigem('VAZIO');
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: '800',
-                    color: situacaoOrigem === 'VAZIO' ? colors.primary : colors.text,
-                  }}
-                >
-                  🔵 Estava Vazio
-                </Text>
-                <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
-                  Perda apenas do vasilhame
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* 3. Onde ocorreu a avaria? */}
-            <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>
-              3. Onde ocorreu a quebra / avaria?
+              2. Onde ocorreu a quebra / avaria?
             </Text>
             <View style={styles.localGrid}>
               {[
@@ -220,9 +160,9 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
               })}
             </View>
 
-            {/* 4. Quantidade de Garrafões Danificados */}
+            {/* 3. Quantidade de Garrafões Danificados */}
             <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>
-              4. Quantidade de Garrafões Danificados:
+              3. Quantidade de Garrafões Danificados:
             </Text>
             <View style={styles.qtdBox}>
               <TouchableOpacity
@@ -339,16 +279,6 @@ const styles = StyleSheet.create({
   },
   tipoBtnText: {
     fontSize: 13,
-  },
-  estadoRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  estadoBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
   },
   localGrid: {
     gap: 8,
