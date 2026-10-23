@@ -97,36 +97,26 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
             {/* 1. Tipo do Vasilhame */}
-            <Text style={[styles.label, { color: colors.text }]}>1. Qual galão quebrou / danificou?</Text>
+            <Text style={[styles.label, { color: colors.text }]}>1. Vasilhame Danificado:</Text>
             <View style={styles.tipoRow}>
-              {['Galão 20L', 'Galão 10L'].map((item) => {
-                const isSel = tipoVasilhame === item;
-                return (
-                  <TouchableOpacity
-                    key={item}
-                    style={[
-                      styles.tipoBtn,
-                      {
-                        backgroundColor: isSel ? colors.secondary : colors.surface,
-                        borderColor: isSel ? colors.secondary : colors.border,
-                      },
-                    ]}
-                    onPress={() => {
-                      HapticService.light();
-                      setTipoVasilhame(item);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.tipoBtnText,
-                        { color: isSel ? '#fff' : colors.text, fontWeight: isSel ? '800' : '600' },
-                      ]}
-                    >
-                      {item}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              <View
+                style={[
+                  styles.tipoBtn,
+                  {
+                    backgroundColor: colors.primaryLight,
+                    borderColor: colors.primary,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.tipoBtnText,
+                    { color: colors.primary, fontWeight: '800' },
+                  ]}
+                >
+                  💧 Galão 20 Litros
+                </Text>
+              </View>
             </View>
 
             {/* 2. Situação no momento da quebra */}

@@ -31,14 +31,9 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
 }) => {
   const { colors } = useTheme();
 
-  // Produtos que usam vasilhame retornável (Água e Gás)
+  // Produtos que usam vasilhame retornável (Galão 20L)
   const produtosRetornaveis = produtos.filter(
-    (p) =>
-      p.categoria === 'AGUA_20L' ||
-      p.categoria === 'AGUA_10L' ||
-      p.categoria === 'GAS_P13' ||
-      p.nome.includes('20L') ||
-      p.nome.includes('Gás')
+    (p) => p.categoria === 'AGUA_20L' || p.nome.includes('20L')
   );
 
   const [selectedProdutoId, setSelectedProdutoId] = useState<string>('');

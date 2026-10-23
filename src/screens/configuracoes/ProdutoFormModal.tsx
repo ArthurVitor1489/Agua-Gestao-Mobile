@@ -55,9 +55,7 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
 
   const tamanhosDisponiveis: { id: CategoriaProduto; label: string }[] = [
     { id: 'AGUA_20L', label: '💧 Galão 20 Litros' },
-    { id: 'AGUA_10L', label: '💧 Galão 10 Litros' },
-    { id: 'GARRAFAO_NOVO', label: '📦 Vasilhame Vazio' },
-    { id: 'OUTROS', label: '🏷️ Descartável / Outro' },
+    { id: 'GARRAFAO_NOVO', label: '📦 Vasilhame 20L Vazio' },
   ];
 
   const handleSalvar = async () => {

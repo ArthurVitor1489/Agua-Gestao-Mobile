@@ -147,9 +147,11 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   // Seed Inicial Automático
   seedInitialData(db);
 
-  // Limpeza de produtos que não são água
+  // Limpeza de produtos que não são Galão 20L
   try {
-    db.runSync("DELETE FROM produtos WHERE categoria = 'GAS_P13' OR nome LIKE '%Gás%' OR nome LIKE '%P13%'");
+    db.runSync(
+      "DELETE FROM produtos WHERE categoria = 'AGUA_10L' OR categoria = 'GAS_P13' OR categoria = 'OUTROS' OR nome LIKE '%10L%' OR nome LIKE '%Gás%' OR nome LIKE '%P13%'"
+    );
   } catch {}
 };
 
@@ -160,10 +162,9 @@ const seedInitialData = (db: SQLite.SQLiteDatabase) => {
     const now = new Date().toISOString();
     const anoAtual = new Date().getFullYear();
 
-    // Produtos Padrão de Água Mineral
+    // Produtos Padrão de Água Mineral (Apenas Galão 20L)
     const produtos = [
       { id: 'prod-galao-20l', nome: 'Água Mineral 20L', categoria: 'AGUA_20L', preco: 14.0, custo: 6.0, estoque: 50 },
-      { id: 'prod-galao-10l', nome: 'Água Mineral 10L', categoria: 'AGUA_10L', preco: 10.0, custo: 4.5, estoque: 25 },
       { id: 'prod-vasilhame-20l', nome: 'Vasilhame Galão 20L (Vazio)', categoria: 'GARRAFAO_NOVO', preco: 35.0, custo: 25.0, estoque: 30 },
     ];
 
