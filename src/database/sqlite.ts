@@ -166,20 +166,6 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   // Seed Inicial Automático
   seedInitialData(db);
 
-  // Limpeza de produtos que não são Galão 20L
-  try {
-    db.runSync(
-      "DELETE FROM produtos WHERE categoria = 'AGUA_10L' OR categoria = 'GAS_P13' OR categoria = 'OUTROS' OR nome LIKE '%10L%' OR nome LIKE '%Gás%' OR nome LIKE '%P13%'"
-    );
-  } catch {}
-
-  // Zeramento de estoque solicitado: produtos com saldo 0 e garrafões zerados
-  try {
-    db.runSync('UPDATE produtos SET estoqueAtual = 0');
-    db.runSync('DELETE FROM estoque_garrafoes');
-    db.runSync('DELETE FROM movimentacoes_estoque');
-  } catch {}
-
   // Migrações seguras de colunas caso o banco já existisse no aparelho
   try { db.execSync('ALTER TABLE usuarios ADD COLUMN empresaNome TEXT;'); } catch {}
   try { db.execSync("ALTER TABLE usuarios ADD COLUMN role TEXT DEFAULT 'ADMIN';"); } catch {}

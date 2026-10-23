@@ -927,13 +927,18 @@ export const PedidosService = {
         it.produtoId,
       ]);
 
-      // Se for água 20L, debita Cheios
-      if (prod && (prod.categoria === 'AGUA_20L' || prod.nome.includes('20L'))) {
-        db.runSync(
-          'UPDATE estoque_garrafoes SET quantidade = MAX(0, quantidade - ?) WHERE status = ?',
-          [it.quantidade, 'CHEIO']
-        );
-      }
+      // Debita Cheios em estoque_garrafoes
+      db.runSync(
+        'UPDATE estoque_garrafoes SET quantidade = MAX(0, quantidade - ?) WHERE status = ?',
+        [it.quantidade, 'CHEIO']
+      );
+
+      // Registrar histórico no extrato de movimentação de estoque
+      db.runSync(
+        `INSERT INTO movimentacoes_estoque (id, produtoId, produtoNome, tipo, quantidade, motivo, data)
+         VALUES (?, ?, ?, 'SAIDA', ?, ?, ?)`,
+        [generateId(), it.produtoId, prod?.nome || 'Água Mineral', it.quantidade, `Venda - Pedido #${numero}`, now]
+      );
     }
 
     const desc = payload.desconto || 0;
@@ -1009,8 +1014,18 @@ export const PedidosService = {
 
     // Estornar itens ao estoque
     const itens: PedidoItem[] = JSON.parse(ped.itensJson || '[]');
+    const now = new Date().toISOString();
     for (const it of itens) {
       db.runSync('UPDATE produtos SET estoqueAtual = estoqueAtual + ? WHERE id = ?', [it.quantidade, it.produtoId]);
+      db.runSync(
+        'UPDATE estoque_garrafoes SET quantidade = quantidade + ? WHERE status = ?',
+        [it.quantidade, 'CHEIO']
+      );
+      db.runSync(
+        `INSERT INTO movimentacoes_estoque (id, produtoId, produtoNome, tipo, quantidade, motivo, data)
+         VALUES (?, ?, ?, 'ENTRADA', ?, ?, ?)`,
+        [generateId(), it.produtoId, it.produto?.nome || 'Água Mineral', it.quantidade, `Estorno Cancelamento Pedido #${ped.numero}`, now]
+      );
     }
 
     // Cancelar fiado correspondente se houver
@@ -1195,6 +1210,13 @@ export const DashboardService = {
       else if (g.status === 'VAZIO') garrafoesVazios += g.quantidade;
       else if (g.status === 'DANIFICADO') garrafoesDanificados += g.quantidade;
       else if (g.status === 'VENCIDO') garrafoesVencidos += g.quantidade;
+    }
+
+    const prodCheiosRow = db.getFirstSync<{ total: number }>(
+      'SELECT SUM(estoqueAtual) as total FROM produtos WHERE ativo = 1'
+    );
+    if (prodCheiosRow && typeof prodCheiosRow.total === 'number') {
+      garrafoesCheios = prodCheiosRow.total;
     }
 
     return {

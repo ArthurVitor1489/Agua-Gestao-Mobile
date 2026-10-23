@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { PedidosService, ConfigService } from '../../database/dbService';
 import { Pedido, StatusPedido } from '../../database/models';
@@ -44,13 +45,19 @@ export const PedidosListScreen: React.FC = () => {
   const [showNovoPedidoModal, setShowNovoPedidoModal] = useState(false);
   const [selectedPedidoCupom, setSelectedPedidoCupom] = useState<Pedido | null>(null);
 
+  // Recarrega os pedidos sempre que o usuário volta à tela
+  useFocusEffect(
+    useCallback(() => {
+      carregarPedidos();
+    }, [statusFiltro, search])
+  );
+
   useEffect(() => {
     carregarPedidos();
   }, [statusFiltro, search]);
 
   const carregarPedidos = () => {
     try {
-      setLoading(true);
       const s = statusFiltro === 'TODOS' ? undefined : (statusFiltro as StatusPedido);
       const data = PedidosService.getPedidos(s, search);
       setPedidos(data);

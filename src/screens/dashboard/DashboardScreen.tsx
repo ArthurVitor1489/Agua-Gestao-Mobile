@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { DashboardService, ClientesService } from '../../database/dbService';
 import { DashboardData, RecompraOportunidade } from '../../database/models';
@@ -34,13 +35,19 @@ export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =
   const [data, setData] = useState<DashboardData | null>(null);
   const [recompraAtrasados, setRecompraAtrasados] = useState<RecompraOportunidade[]>([]);
 
+  // Recarrega os indicadores instantaneamente sempre que o usuário abre a aba Dashboard
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboard();
+    }, [periodo])
+  );
+
   useEffect(() => {
     loadDashboard();
   }, [periodo]);
 
   const loadDashboard = () => {
     try {
-      setLoading(true);
       const dash = DashboardService.getDashboard(periodo);
       const recompra = ClientesService.getRecompraOportunidades();
       setData(dash);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { EstoqueService, ProdutosService } from '../../database/dbService';
 import { EstoqueGarrafao, Produto, MovimentacaoEstoque } from '../../database/models';
@@ -40,13 +41,19 @@ export const EstoqueScreen: React.FC = () => {
   const [showMovimentarModal, setShowMovimentarModal] = useState(false);
   const [showNovoProdutoModal, setShowNovoProdutoModal] = useState(false);
 
+  // Atualiza instantaneamente toda vez que a tela de Estoque ganha foco
+  useFocusEffect(
+    useCallback(() => {
+      carregarEstoque();
+    }, [])
+  );
+
   useEffect(() => {
     carregarEstoque();
   }, []);
 
   const carregarEstoque = () => {
     try {
-      setLoading(true);
       const g = EstoqueService.getGarrafoes();
       const p = ProdutosService.getProdutos();
       const m = EstoqueService.getMovimentacoes();

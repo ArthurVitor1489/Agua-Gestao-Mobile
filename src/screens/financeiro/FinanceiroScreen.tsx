@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { FinanceiroService, DashboardService } from '../../database/dbService';
 import { Fiado, Despesa, DashboardData } from '../../database/models';
@@ -44,13 +45,19 @@ export const FinanceiroScreen: React.FC = () => {
   const [showNovaDespesaModal, setShowNovaDespesaModal] = useState(false);
   const [selectedFiadoQuitar, setSelectedFiadoQuitar] = useState<Fiado | null>(null);
 
+  // Recarrega fluxo de caixa e fiados sempre que entra na tela
+  useFocusEffect(
+    useCallback(() => {
+      carregarDados();
+    }, [])
+  );
+
   useEffect(() => {
     carregarDados();
   }, []);
 
   const carregarDados = () => {
     try {
-      setLoading(true);
       const dash = DashboardService.getDashboard('mes');
       const fList = FinanceiroService.getFiados();
       const totFiados = fList.reduce((acc, f) => acc + f.saldo, 0);

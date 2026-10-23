@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Linking,
   Alert,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { ClientesService, ConfigService } from '../../database/dbService';
 import { Cliente, RecompraOportunidade } from '../../database/models';
@@ -42,13 +43,19 @@ export const ClientesScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
   const [showNovoClienteModal, setShowNovoClienteModal] = useState(false);
   const [clienteEmEdicao, setClienteEmEdicao] = useState<Cliente | null>(null);
 
+  // Recarrega lista e oportunidades de recompra quando ganha foco
+  useFocusEffect(
+    useCallback(() => {
+      carregarDados();
+    }, [search])
+  );
+
   useEffect(() => {
     carregarDados();
-  }, []);
+  }, [search]);
 
   const carregarDados = () => {
     try {
-      setLoading(true);
       const cli = ClientesService.getClientes(search);
       const rec = ClientesService.getRecompraOportunidades();
       setClientes(cli);
