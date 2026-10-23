@@ -26,6 +26,7 @@ import {
   Clock,
   Sparkles,
   ShoppingBag,
+  Edit2,
 } from 'lucide-react-native';
 
 export const ClientesScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
@@ -39,6 +40,7 @@ export const ClientesScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
   const [search, setSearch] = useState('');
 
   const [showNovoClienteModal, setShowNovoClienteModal] = useState(false);
+  const [clienteEmEdicao, setClienteEmEdicao] = useState<Cliente | null>(null);
 
   useEffect(() => {
     carregarDados();
@@ -179,7 +181,7 @@ export const ClientesScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
                     <View style={styles.specialBadge}>
                       <Sparkles size={11} color="#0284c7" />
                       <Text style={{ color: '#0284c7', fontSize: 11, fontWeight: 'bold' }}>
-                        Preço Especial Ativo
+                        Preço Especial: R$ {item.precosEspeciais![0].preco.toFixed(2)}
                       </Text>
                     </View>
                   )}
@@ -187,6 +189,18 @@ export const ClientesScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
 
                 {/* Ações */}
                 <View style={{ flexDirection: 'row', gap: 6 }}>
+                  {/* Editar Cliente & Preço */}
+                  <TouchableOpacity
+                    style={[styles.iconAction, { backgroundColor: colors.surface }]}
+                    onPress={() => {
+                      HapticService.light();
+                      setClienteEmEdicao(item);
+                      setShowNovoClienteModal(true);
+                    }}
+                  >
+                    <Edit2 size={16} color={colors.primary} />
+                  </TouchableOpacity>
+
                   {item.whatsapp && (
                     <TouchableOpacity
                       style={[styles.iconAction, { backgroundColor: '#dcfce7' }]}
@@ -222,6 +236,7 @@ export const ClientesScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
             style={[styles.fabBtn, { backgroundColor: colors.primary }]}
             onPress={() => {
               HapticService.medium();
+              setClienteEmEdicao(null);
               setShowNovoClienteModal(true);
             }}
           >
@@ -303,12 +318,17 @@ export const ClientesScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
         </View>
       )}
 
-      {/* Modal Cadastro de Cliente */}
+      {/* Modal Cadastro/Edição de Cliente */}
       <NovoClienteModal
         visible={showNovoClienteModal}
-        onClose={() => setShowNovoClienteModal(false)}
+        clienteParaEditar={clienteEmEdicao}
+        onClose={() => {
+          setShowNovoClienteModal(false);
+          setClienteEmEdicao(null);
+        }}
         onSuccess={() => {
           setShowNovoClienteModal(false);
+          setClienteEmEdicao(null);
           carregarDados();
         }}
       />

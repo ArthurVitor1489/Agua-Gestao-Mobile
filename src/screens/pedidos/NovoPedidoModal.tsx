@@ -357,9 +357,16 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
                   <View key={item.produto.id} style={[styles.cartItemRow, { borderBottomColor: colors.border }]}>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.cartItemName, { color: colors.text }]}>{item.produto.nome}</Text>
-                      <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                        R$ {item.valorUnitario.toFixed(2)} un • Total: R$ {(item.quantidade * item.valorUnitario).toFixed(2)}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                        <Text style={{ color: colors.textMuted, fontSize: 12 }}>
+                          R$ {item.valorUnitario.toFixed(2)} un • Sub: R$ {(item.quantidade * item.valorUnitario).toFixed(2)}
+                        </Text>
+                        {item.valorUnitario !== item.produto.precoVenda && (
+                          <View style={{ backgroundColor: '#dcfce7', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                            <Text style={{ fontSize: 10, fontWeight: '800', color: '#15803d' }}>Preço Cliente</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                     <View style={styles.qtyControls}>
                       <TouchableOpacity

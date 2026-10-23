@@ -15,16 +15,18 @@ import { ClientesService, ProdutosService } from '../../database/dbService';
 import { Produto, Cliente } from '../../database/models';
 import { LocationService } from '../../services/locationService';
 import { HapticService } from '../../services/hapticService';
-import { X, MapPin, Check, Plus, Trash2 } from 'lucide-react-native';
+import { X, MapPin, Check, Sparkles, DollarSign, Edit2 } from 'lucide-react-native';
 
 interface NovoClienteModalProps {
   visible: boolean;
+  clienteParaEditar?: Cliente | null;
   onClose: () => void;
-  onSuccess: (novoCliente: Cliente) => void;
+  onSuccess: (clienteSalvo: Cliente) => void;
 }
 
 export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
   visible,
+  clienteParaEditar,
   onClose,
   onSuccess,
 }) => {
@@ -39,29 +41,65 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
   const [bairro, setBairro] = useState('');
   const [cidade, setCidade] = useState('');
   const [pontoReferencia, setPontoReferencia] = useState('');
-  const [observacoes, setObservacoes] = useState('');
 
   // GPS
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [capturingGps, setCapturingGps] = useState(false);
 
-  // Preços Especiais
+  // Produtos e Preços Personalizados
   const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [precosEspeciais, setPrecosEspeciais] = useState<{ produtoId: string; preco: number }[]>([]);
+  const [precosPersonalizados, setPrecosPersonalizados] = useState<Record<string, string>>({});
 
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (visible) {
       try {
-        const prods = ProdutosService.getProdutos();
-        setProdutos(prods.filter((p) => p.ativo));
+        const prods = ProdutosService.getProdutos().filter((p) => p.ativo);
+        setProdutos(prods);
+
+        if (clienteParaEditar) {
+          setNome(clienteParaEditar.nome || '');
+          setCpfCnpj(clienteParaEditar.cpfCnpj || '');
+          setTelefone(clienteParaEditar.telefone || '');
+          setWhatsapp(clienteParaEditar.whatsapp || '');
+          setLogradouro(clienteParaEditar.logradouro || '');
+          setNumero(clienteParaEditar.numero || '');
+          setBairro(clienteParaEditar.bairro || '');
+          setCidade(clienteParaEditar.cidade || '');
+          setPontoReferencia(clienteParaEditar.pontoReferencia || '');
+          setLatitude(clienteParaEditar.latitude || null);
+          setLongitude(clienteParaEditar.longitude || null);
+
+          // Carregar preços especiais existentes
+          const precosMap: Record<string, string> = {};
+          if (clienteParaEditar.precosEspeciais) {
+            for (const pe of clienteParaEditar.precosEspeciais) {
+              precosMap[pe.produtoId] = String(pe.preco);
+            }
+          }
+          setPrecosPersonalizados(precosMap);
+        } else {
+          // Reset para novo cadastro
+          setNome('');
+          setCpfCnpj('');
+          setTelefone('');
+          setWhatsapp('');
+          setLogradouro('');
+          setNumero('');
+          setBairro('');
+          setCidade('');
+          setPontoReferencia('');
+          setLatitude(null);
+          setLongitude(null);
+          setPrecosPersonalizados({});
+        }
       } catch (err) {
-        console.warn('Erro ao carregar produtos no modal de cliente:', err);
+        console.warn('Erro ao carregar dados no modal de cliente:', err);
       }
     }
-  }, [visible]);
+  }, [visible, clienteParaEditar]);
 
   const capturarGps = async () => {
     try {
@@ -83,6 +121,13 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
     }
   };
 
+  const setPrecoDoProduto = (produtoId: string, valorStr: string) => {
+    setPrecosPersonalizados({
+      ...precosPersonalizados,
+      [produtoId]: valorStr,
+    });
+  };
+
   const handleSalvar = async () => {
     if (!nome.trim()) {
       Alert.alert('Atenção', 'Informe o nome do cliente.');
@@ -93,7 +138,24 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
       setSubmitting(true);
       await HapticService.medium();
 
-      const novo = ClientesService.salvarCliente({
+      // Montar array de preços especiais válidos
+      const precosEspeciaisList = Object.entries(precosPersonalizados)
+        .map(([prodId, valStr]) => {
+          const num = parseFloat(valStr.replace(',', '.'));
+          if (!isNaN(num) && num > 0) {
+            return {
+              id: 'pe-' + Math.random().toString(36).substring(2, 9),
+              clienteId: clienteParaEditar?.id || '',
+              produtoId: prodId,
+              preco: num,
+            };
+          }
+          return null;
+        })
+        .filter(Boolean) as any[];
+
+      const clienteSalvo = ClientesService.salvarCliente({
+        id: clienteParaEditar ? clienteParaEditar.id : undefined,
         nome: nome.trim(),
         cpfCnpj: cpfCnpj.trim() || undefined,
         telefone: telefone.trim() || undefined,
@@ -105,33 +167,11 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
         pontoReferencia: pontoReferencia.trim() || undefined,
         latitude: latitude || undefined,
         longitude: longitude || undefined,
-        precosEspeciais:
-          precosEspeciais.length > 0
-            ? precosEspeciais.map((pe) => ({
-                id: 'pe-' + Math.random().toString(36).substring(2, 9),
-                clienteId: '',
-                produtoId: pe.produtoId,
-                preco: pe.preco,
-              }))
-            : undefined,
+        precosEspeciais: precosEspeciaisList.length > 0 ? precosEspeciaisList : undefined,
       });
 
       await HapticService.success();
-      // Limpar formulário
-      setNome('');
-      setCpfCnpj('');
-      setTelefone('');
-      setWhatsapp('');
-      setLogradouro('');
-      setNumero('');
-      setBairro('');
-      setCidade('');
-      setPontoReferencia('');
-      setLatitude(null);
-      setLongitude(null);
-      setPrecosEspeciais([]);
-
-      onSuccess(novo);
+      onSuccess(clienteSalvo);
     } catch (err: any) {
       await HapticService.error();
       Alert.alert('Erro', err.message || 'Falha ao salvar cliente');
@@ -146,9 +186,11 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
         <View style={[styles.container, { backgroundColor: colors.card }]}>
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View>
-              <Text style={[styles.title, { color: colors.text }]}>Novo Cliente</Text>
+              <Text style={[styles.title, { color: colors.text }]}>
+                {clienteParaEditar ? 'Editar Cliente' : 'Novo Cliente'}
+              </Text>
               <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                Cadastro com GPS e tabela de preços
+                Cadastro com preço personalizado por cliente
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -161,32 +203,29 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
             <Text style={[styles.label, { color: colors.text }]}>Nome / Razão Social *</Text>
             <TextInput
               style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
-              placeholder="Ex: Arthur Vitor ou Padaria Pão de Mel"
+              placeholder="Ex: Mercadinho Central, Academia Fisio, Arthur..."
               placeholderTextColor={colors.textMuted}
               value={nome}
               onChangeText={setNome}
             />
 
-            <View style={styles.rowInputs}>
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.label, { color: colors.text }]}>Telefone / WhatsApp</Text>
+                <Text style={[styles.label, { color: colors.text }]}>WhatsApp / Celular</Text>
                 <TextInput
                   style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
-                  keyboardType="phone-pad"
                   placeholder="(83) 99999-9999"
                   placeholderTextColor={colors.textMuted}
-                  value={telefone}
-                  onChangeText={(t) => {
-                    setTelefone(t);
-                    if (!whatsapp) setWhatsapp(t);
-                  }}
+                  keyboardType="phone-pad"
+                  value={whatsapp}
+                  onChangeText={setWhatsapp}
                 />
               </View>
+
               <View style={{ flex: 1 }}>
-                <Text style={[styles.label, { color: colors.text }]}>CPF / CNPJ</Text>
+                <Text style={[styles.label, { color: colors.text }]}>CPF / CNPJ (Opcional)</Text>
                 <TextInput
                   style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
-                  keyboardType="numeric"
                   placeholder="000.000.000-00"
                   placeholderTextColor={colors.textMuted}
                   value={cpfCnpj}
@@ -195,27 +234,113 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
               </View>
             </View>
 
-            {/* Endereço */}
-            <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 14 }]}>
-              Endereço de Entrega
-            </Text>
+            {/* SEÇÃO PRINCIPAL: PREÇO PERSONALIZADO DESTE CLIENTE */}
+            <View style={[styles.pricingSection, { backgroundColor: colors.surface, borderColor: colors.primary }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <Sparkles size={18} color={colors.primary} />
+                <Text style={[styles.pricingTitle, { color: colors.text }]}>
+                  Preço Personalizado deste Cliente
+                </Text>
+              </View>
+              <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 12 }}>
+                Defina o valor da água negociado para este cliente. No PDV, o valor será puxado automaticamente!
+              </Text>
 
-            <View style={styles.rowInputs}>
-              <View style={{ flex: 2.2 }}>
-                <Text style={[styles.label, { color: colors.text }]}>Logradouro / Rua</Text>
+              {produtos.map((prod) => {
+                const valorAtual = precosPersonalizados[prod.id] || '';
+                return (
+                  <View key={prod.id} style={[styles.prodPriceRow, { borderColor: colors.border }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.prodPriceNome, { color: colors.text }]}>{prod.nome}</Text>
+                      <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                        Tabela normal: R$ {prod.precoVenda.toFixed(2)}
+                      </Text>
+                    </View>
+
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontSize: 13, fontWeight: 'bold', color: colors.text }}>R$</Text>
+                        <TextInput
+                          style={[
+                            styles.priceInput,
+                            {
+                              backgroundColor: colors.card,
+                              color: colors.text,
+                              borderColor: valorAtual ? colors.primary : colors.border,
+                            },
+                          ]}
+                          keyboardType="numeric"
+                          placeholder={prod.precoVenda.toFixed(2)}
+                          placeholderTextColor={colors.textMuted}
+                          value={valorAtual}
+                          onChangeText={(t) => setPrecoDoProduto(prod.id, t)}
+                        />
+                      </View>
+
+                      {/* Botões rápidos de preço */}
+                      <View style={styles.quickPillsRow}>
+                        {[8, 9, 10, 11, 12].map((pVal) => (
+                          <TouchableOpacity
+                            key={pVal}
+                            style={[
+                              styles.quickPill,
+                              {
+                                backgroundColor: valorAtual === String(pVal) ? colors.primary : colors.card,
+                                borderColor: colors.border,
+                              },
+                            ]}
+                            onPress={() => {
+                              HapticService.light();
+                              setPrecoDoProduto(prod.id, String(pVal));
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontSize: 11,
+                                fontWeight: '700',
+                                color: valorAtual === String(pVal) ? '#fff' : colors.text,
+                              }}
+                            >
+                              {pVal}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                        {valorAtual ? (
+                          <TouchableOpacity
+                            style={[styles.quickPill, { backgroundColor: '#fee2e2', borderColor: '#fca5a5' }]}
+                            onPress={() => {
+                              HapticService.light();
+                              setPrecoDoProduto(prod.id, '');
+                            }}
+                          >
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: colors.danger }}>Limpar</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* Endereço */}
+            <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 14 }]}>Endereço de Entrega</Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{ flex: 3 }}>
+                <Text style={[styles.label, { color: colors.text }]}>Rua / Logradouro</Text>
                 <TextInput
                   style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
-                  placeholder="Rua das Acácias"
+                  placeholder="Rua das Flores"
                   placeholderTextColor={colors.textMuted}
                   value={logradouro}
                   onChangeText={setLogradouro}
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.label, { color: colors.text }]}>Número</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Nº</Text>
                 <TextInput
                   style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
-                  placeholder="120"
+                  placeholder="123"
                   placeholderTextColor={colors.textMuted}
                   value={numero}
                   onChangeText={setNumero}
@@ -223,7 +348,7 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
               </View>
             </View>
 
-            <View style={styles.rowInputs}>
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.label, { color: colors.text }]}>Bairro</Text>
                 <TextInput
@@ -246,7 +371,7 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
               </View>
             </View>
 
-            <Text style={[styles.label, { color: colors.text }]}>Ponto de Referência</Text>
+            <Text style={[styles.label, { color: colors.text, marginTop: 12 }]}>Ponto de Referência</Text>
             <TextInput
               style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
               placeholder="Ex: Em frente à praça / portão azul"
@@ -296,7 +421,9 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
               ) : (
                 <>
                   <Check size={20} color="#fff" />
-                  <Text style={styles.confirmBtnText}>Cadastrar Cliente</Text>
+                  <Text style={styles.confirmBtnText}>
+                    {clienteParaEditar ? 'Salvar Alterações' : 'Cadastrar Cliente'}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -327,7 +454,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   title: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
   },
   closeBtn: {
@@ -336,41 +463,78 @@ const styles = StyleSheet.create({
   body: {
     padding: 16,
   },
+  label: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '800',
     marginBottom: 8,
   },
-  label: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
   input: {
-    height: 44,
-    borderRadius: 10,
+    height: 46,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,
     fontSize: 14,
-    marginBottom: 10,
   },
-  rowInputs: {
+  pricingSection: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  pricingTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  prodPriceRow: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
     flexDirection: 'row',
-    gap: 10,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  prodPriceNome: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  priceInput: {
+    width: 76,
+    height: 38,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  quickPillsRow: {
+    flexDirection: 'row',
+    gap: 4,
+    marginTop: 6,
+  },
+  quickPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
   },
   gpsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1.5,
+    borderRadius: 12,
+    borderWidth: 1,
     gap: 8,
-    marginTop: 6,
+    marginTop: 14,
   },
   gpsBtnText: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   footer: {
     padding: 16,
