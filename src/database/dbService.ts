@@ -1193,6 +1193,7 @@ export const FinanceiroService = {
       {
         faturamento: number;
         recebido: number;
+        emAberto: number;
         despesas: number;
         totalPedidos: number;
         totalGaloes: number;
@@ -1221,6 +1222,7 @@ export const FinanceiroService = {
       mesesMap[chave] = {
         faturamento: 0,
         recebido: 0,
+        emAberto: 0,
         despesas: 0,
         totalPedidos: 0,
         totalGaloes: 0,
@@ -1237,10 +1239,17 @@ export const FinanceiroService = {
         if (!p.data) continue;
         const chave = p.data.substring(0, 7); // "YYYY-MM"
         if (!mesesMap[chave]) {
-          mesesMap[chave] = { faturamento: 0, recebido: 0, despesas: 0, totalPedidos: 0, totalGaloes: 0 };
+          mesesMap[chave] = { faturamento: 0, recebido: 0, emAberto: 0, despesas: 0, totalPedidos: 0, totalGaloes: 0 };
         }
         mesesMap[chave].faturamento += p.valorTotal || 0;
-        mesesMap[chave].recebido += p.valorTotal || 0;
+        
+        const isFiado = p.formaPagamento === 'FIADO' || String(p.formaPagamento).toUpperCase().includes('FIADO');
+        if (isFiado) {
+          mesesMap[chave].emAberto += p.valorTotal || 0;
+        } else {
+          mesesMap[chave].recebido += p.valorTotal || 0;
+        }
+
         mesesMap[chave].totalPedidos += 1;
 
         try {
@@ -1261,7 +1270,7 @@ export const FinanceiroService = {
         if (!d.data) continue;
         const chave = d.data.substring(0, 7);
         if (!mesesMap[chave]) {
-          mesesMap[chave] = { faturamento: 0, recebido: 0, despesas: 0, totalPedidos: 0, totalGaloes: 0 };
+          mesesMap[chave] = { faturamento: 0, recebido: 0, emAberto: 0, despesas: 0, totalPedidos: 0, totalGaloes: 0 };
         }
         mesesMap[chave].despesas += d.valor || 0;
       }
@@ -1288,6 +1297,7 @@ export const FinanceiroService = {
         rotuloCurto: `${nomesMesesCurtos[mIdx]}/${String(y).slice(-2)}`,
         faturamento: dados.faturamento,
         recebido: dados.recebido,
+        emAberto: dados.emAberto,
         despesas: dados.despesas,
         lucroLiquido,
         totalPedidos: dados.totalPedidos,

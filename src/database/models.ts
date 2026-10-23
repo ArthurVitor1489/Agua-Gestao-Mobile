@@ -178,6 +178,7 @@ export interface GanhosMes {
   rotuloCurto: string; // "Out/26"
   faturamento: number;
   recebido: number;
+  emAberto: number;
   despesas: number;
   lucroLiquido: number;
   totalPedidos: number;

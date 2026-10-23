@@ -90,7 +90,9 @@ export const FinanceiroScreen: React.FC = () => {
     carregarDados();
   };
 
-  const saldoLiquido = (dashboard?.recebido || 0) - totalDespesas;
+  const despesasMes = dashboard?.despesas || 0;
+  const saldoLiquido = (dashboard?.recebido || 0) - despesasMes;
+  const mesAtualDados = ganhosMeses.find((m) => m.isMesAtual) || ganhosMeses[0];
   const totalFaturadoAcumulado = ganhosMeses.reduce((acc, m) => acc + m.faturamento, 0);
   const lucroAcumulado = ganhosMeses.reduce((acc, m) => acc + m.lucroLiquido, 0);
   const totalGaloesAcumulado = ganhosMeses.reduce((acc, m) => acc + m.totalGaloes, 0);
@@ -179,42 +181,48 @@ export const FinanceiroScreen: React.FC = () => {
           contentContainerStyle={{ paddingBottom: 110 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         >
-          {/* Card Resumo Consolidado */}
+          {/* Card Resumo do Mês Atual */}
           <View style={[styles.dreCard, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 14 }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '800' }}>
-                HISTÓRICO CONSOLIDADO (ÚLTIMOS 6 MESES)
+                LUCRO LÍQUIDO ({mesAtualDados?.rotuloMes ? mesAtualDados.rotuloMes.toUpperCase() : 'MÊS ATUAL'})
               </Text>
-              <View style={{ backgroundColor: colors.primaryLight, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
-                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>EVOLUÇÃO</Text>
+              <View style={{ backgroundColor: '#dcfce7', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ color: '#15803d', fontSize: 10, fontWeight: '800' }}>MÊS ATUAL</Text>
               </View>
             </View>
 
             <Text
               style={[
                 styles.dreBigNum,
-                { color: lucroAcumulado >= 0 ? colors.success : colors.danger },
+                { color: (mesAtualDados?.lucroLiquido || 0) >= 0 ? colors.success : colors.danger },
               ]}
             >
-              R$ {lucroAcumulado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R$ {(mesAtualDados?.lucroLiquido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </Text>
             <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
-              Lucro Líquido Real Acumulado
+              Lucro Real do Mês (Vendas (-) Despesas)
             </Text>
 
             <View style={[styles.dreDivider, { borderTopColor: colors.border }]} />
 
             <View style={styles.dreRow}>
               <View>
-                <Text style={{ fontSize: 11, color: colors.textMuted }}>Total Faturado</Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted }}>Faturamento Mês</Text>
                 <Text style={{ fontSize: 15, fontWeight: '800', color: colors.primary }}>
-                  R$ {totalFaturadoAcumulado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {(mesAtualDados?.faturamento || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </Text>
+              </View>
+              <View>
+                <Text style={{ fontSize: 11, color: colors.textMuted }}>Despesas Mês</Text>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: colors.danger }}>
+                  - R$ {(mesAtualDados?.despesas || 0).toFixed(2)}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ fontSize: 11, color: colors.textMuted }}>Total de Galões</Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted }}>Galões Mês</Text>
                 <Text style={{ fontSize: 15, fontWeight: '800', color: colors.text }}>
-                  {totalGaloesAcumulado} entregues
+                  {mesAtualDados?.totalGaloes || 0} un
                 </Text>
               </View>
             </View>
@@ -337,16 +345,24 @@ export const FinanceiroScreen: React.FC = () => {
                   {/* Linha Faturamento x Despesas */}
                   <View style={[styles.mesCardGrid, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 10, color: colors.textMuted }}>Faturamento</Text>
+                      <Text style={{ fontSize: 10, color: colors.textMuted }}>Faturamento Total</Text>
                       <Text style={{ fontSize: 13, fontWeight: '800', color: colors.text }}>
                         R$ {m.faturamento.toFixed(2)}
                       </Text>
+                      {m.emAberto > 0 && (
+                        <Text style={{ fontSize: 9, color: '#b91c1c', fontWeight: '700', marginTop: 2 }}>
+                          R$ {m.emAberto.toFixed(2)} fiado pendente
+                        </Text>
+                      )}
                     </View>
                     <View style={{ width: 1, backgroundColor: colors.border }} />
                     <View style={{ flex: 1, paddingLeft: 8 }}>
-                      <Text style={{ fontSize: 10, color: colors.textMuted }}>Despesas</Text>
+                      <Text style={{ fontSize: 10, color: colors.textMuted }}>Despesas Mês</Text>
                       <Text style={{ fontSize: 13, fontWeight: '800', color: colors.danger }}>
                         - R$ {m.despesas.toFixed(2)}
+                      </Text>
+                      <Text style={{ fontSize: 9, color: colors.textMuted, marginTop: 2 }}>
+                        Gastos de rota/depósito
                       </Text>
                     </View>
                   </View>
@@ -407,12 +423,22 @@ export const FinanceiroScreen: React.FC = () => {
                 </Text>
               </View>
               <View>
-                <Text style={{ fontSize: 11, color: colors.textMuted }}>Despesas de Rota</Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted }}>Despesas do Mês</Text>
                 <Text style={{ fontSize: 15, fontWeight: '800', color: colors.danger }}>
-                  - R$ {totalDespesas.toFixed(2)}
+                  - R$ {despesasMes.toFixed(2)}
                 </Text>
               </View>
             </View>
+
+            {(dashboard?.emAberto || 0) > 0 && (
+              <View style={{ backgroundColor: colors.surface, padding: 10, borderRadius: 10, marginTop: 12, borderWidth: 1, borderColor: colors.border }}>
+                <Text style={{ fontSize: 11, color: colors.textMuted, lineHeight: 16 }}>
+                  💡 <Text style={{ fontWeight: '800', color: colors.text }}>Total Faturado no Mês: R$ {(dashboard?.faturamento || 0).toFixed(2)}</Text>{'\n'}
+                  • Recebido em Caixa: R$ {(dashboard?.recebido || 0).toFixed(2)}{'\n'}
+                  • A Receber em Fiados: R$ {(dashboard?.emAberto || 0).toFixed(2)}
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Detalhamento de Entradas por Meio */}
