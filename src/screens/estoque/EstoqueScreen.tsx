@@ -226,7 +226,7 @@ export const EstoqueScreen: React.FC = () => {
               }}
             >
               <Plus size={18} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>CADASTRAR NOVA ÁGUA / MARCA</Text>
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>CADASTRAR PRODUTO</Text>
             </TouchableOpacity>
 
             {/* Lista dos Produtos */}

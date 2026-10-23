@@ -250,7 +250,7 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
                   activeOpacity={0.8}
                 >
                   <Plus size={18} color="#fff" />
-                  <Text style={styles.novoProdBtnText}>CADASTRAR NOVA ÁGUA / MARCA</Text>
+                  <Text style={styles.novoProdBtnText}>CADASTRAR NOVO PRODUTO</Text>
                 </TouchableOpacity>
               </View>
 
