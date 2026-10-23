@@ -34,7 +34,6 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
   const [nome, setNome] = useState('');
   const [categoria, setCategoria] = useState<CategoriaProduto>('AGUA_20L');
   const [precoVenda, setPrecoVenda] = useState('');
-  const [estoqueAtual, setEstoqueAtual] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -43,12 +42,10 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
         setNome(produtoParaEditar.nome);
         setCategoria(produtoParaEditar.categoria);
         setPrecoVenda(produtoParaEditar.precoVenda.toFixed(2));
-        setEstoqueAtual(String(produtoParaEditar.estoque?.quantidadeAtual || 0));
       } else {
         setNome('');
         setCategoria('AGUA_20L');
         setPrecoVenda('');
-        setEstoqueAtual('50');
       }
     }
   }, [visible, produtoParaEditar]);
@@ -64,14 +61,13 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
 
   const handleSalvar = async () => {
     const preco = parseFloat(precoVenda.replace(',', '.'));
-    const estoque = parseInt(estoqueAtual, 10) || 0;
 
     if (!nome.trim()) {
       Alert.alert('Atenção', 'Selecione ou digite o nome do produto.');
       return;
     }
     if (isNaN(preco) || preco <= 0) {
-      Alert.alert('Atenção', 'Informe o preço de venda válido.');
+      Alert.alert('Atenção', 'Informe o preço do produto.');
       return;
     }
 
@@ -87,7 +83,7 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
         estoque: {
           id: produtoParaEditar?.estoque?.id || 'est-' + Math.random().toString(36).substring(2, 9),
           produtoId: produtoParaEditar?.id || '',
-          quantidadeAtual: estoque,
+          quantidadeAtual: produtoParaEditar?.estoque?.quantidadeAtual || 0,
           quantidadeMinima: 10,
           updatedAt: new Date().toISOString(),
         },
@@ -179,38 +175,21 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
               onChangeText={setNome}
             />
 
-            {/* Preço de Venda e Estoque */}
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.label, { color: colors.text }]}>Preço de Venda (R$) *</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
-                  ]}
-                  keyboardType="numeric"
-                  placeholder="Ex: 12,00"
-                  placeholderTextColor={colors.textMuted}
-                  value={precoVenda}
-                  onChangeText={setPrecoVenda}
-                />
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.label, { color: colors.text }]}>Estoque Inicial (un)</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
-                  ]}
-                  keyboardType="numeric"
-                  placeholder="50"
-                  placeholderTextColor={colors.textMuted}
-                  value={estoqueAtual}
-                  onChangeText={setEstoqueAtual}
-                />
-              </View>
-            </View>
+            {/* Preço do Produto */}
+            <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>
+              3. Preço do Produto (R$) *
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
+              ]}
+              keyboardType="numeric"
+              placeholder="Ex: 12,00"
+              placeholderTextColor={colors.textMuted}
+              value={precoVenda}
+              onChangeText={setPrecoVenda}
+            />
 
             <View style={{ height: 20 }} />
           </ScrollView>
