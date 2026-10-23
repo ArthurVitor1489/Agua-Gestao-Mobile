@@ -48,6 +48,27 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [showSuperAdminModal, setShowSuperAdminModal] = useState(false);
 
+  // Easter egg: 5 toques seguidos para abrir Painel Super Admin
+  const adminTapCountRef = useRef(0);
+  const lastAdminTapRef = useRef(0);
+
+  const handleAdminEasterEgg = () => {
+    const now = Date.now();
+    if (now - lastAdminTapRef.current > 2000) {
+      adminTapCountRef.current = 0;
+    }
+    lastAdminTapRef.current = now;
+    adminTapCountRef.current += 1;
+
+    HapticService.light();
+
+    if (adminTapCountRef.current >= 5) {
+      adminTapCountRef.current = 0;
+      HapticService.success();
+      setShowSuperAdminModal(true);
+    }
+  };
+
   useEffect(() => {
     checkBiometrics();
 
@@ -230,13 +251,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
           </View>
         )}
 
-        {/* Versão do App (Toque discreto para abrir Painel Admin) */}
+        {/* Versão do App (Toque 5x para abrir Painel Admin) */}
         <TouchableOpacity
           style={styles.versionRow}
-          onPress={() => {
-            HapticService.light();
-            setShowSuperAdminModal(true);
-          }}
+          onPress={handleAdminEasterEgg}
           activeOpacity={0.7}
         >
           <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '600' }}>

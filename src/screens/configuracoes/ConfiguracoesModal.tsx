@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -68,6 +68,27 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
   const [showProdutoModal, setShowProdutoModal] = useState(false);
   const [showSuperAdminModal, setShowSuperAdminModal] = useState(false);
   const [produtoEmEdicao, setProdutoEmEdicao] = useState<Produto | null>(null);
+
+  // Easter egg: 5 toques seguidos na versão para abrir o Painel Admin Master
+  const adminTapCountRef = useRef(0);
+  const lastAdminTapRef = useRef(0);
+
+  const handleAdminEasterEgg = () => {
+    const now = Date.now();
+    if (now - lastAdminTapRef.current > 2000) {
+      adminTapCountRef.current = 0;
+    }
+    lastAdminTapRef.current = now;
+    adminTapCountRef.current += 1;
+
+    HapticService.light();
+
+    if (adminTapCountRef.current >= 5) {
+      adminTapCountRef.current = 0;
+      HapticService.success();
+      setShowSuperAdminModal(true);
+    }
+  };
 
   useEffect(() => {
     if (visible) {
@@ -381,12 +402,9 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
                 </Text>
               </TouchableOpacity>
 
-              {/* Versão do Programa (Toque para abrir painel admin) */}
+              {/* Versão do Programa (Toque 5x para abrir painel admin) */}
               <TouchableOpacity
-                onPress={() => {
-                  HapticService.light();
-                  setShowSuperAdminModal(true);
-                }}
+                onPress={handleAdminEasterEgg}
                 activeOpacity={0.7}
                 style={styles.versionClickable}
               >
@@ -439,10 +457,7 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
               <View style={[styles.techInfoBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <Text style={[styles.techTitle, { color: colors.text }]}>Informações do Aplicativo</Text>
                 <TouchableOpacity
-                  onPress={() => {
-                    HapticService.light();
-                    setShowSuperAdminModal(true);
-                  }}
+                  onPress={handleAdminEasterEgg}
                   activeOpacity={0.7}
                 >
                   <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
