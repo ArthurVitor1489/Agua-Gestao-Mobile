@@ -52,7 +52,7 @@ export const SupabaseClientService = {
     }
 
     return {
-      url: '',
+      url: 'https://owphqcljfztrduhmbmrh.supabase.co',
       anonKey: '',
       lastSyncAt: null,
       isConfigured: false,
