@@ -12,7 +12,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { FinanceiroService, DashboardService } from '../../database/dbService';
-import { Fiado, Despesa, DashboardData } from '../../database/models';
+import { Fiado, Despesa, DashboardData, GanhosMes } from '../../database/models';
 import { NovaDespesaModal } from './NovaDespesaModal';
 import { QuitarFiadoModal } from './QuitarFiadoModal';
 import { HapticService } from '../../services/hapticService';
@@ -26,17 +26,22 @@ import {
   Banknote,
   TrendingDown,
   TrendingUp,
+  BarChart3,
+  Calendar,
+  ArrowUpRight,
+  Droplets,
 } from 'lucide-react-native';
 
 export const FinanceiroScreen: React.FC = () => {
   const { colors } = useTheme();
 
-  const [abaAtiva, setAbaAtiva] = useState<'caixa' | 'fiados' | 'despesas'>('caixa');
+  const [abaAtiva, setAbaAtiva] = useState<'ganhos' | 'caixa' | 'fiados' | 'despesas'>('ganhos');
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [fiados, setFiados] = useState<Fiado[]>([]);
   const [totalFiados, setTotalFiados] = useState(0);
   const [despesas, setDespesas] = useState<Despesa[]>([]);
   const [totalDespesas, setTotalDespesas] = useState(0);
+  const [ganhosMeses, setGanhosMeses] = useState<GanhosMes[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,12 +68,14 @@ export const FinanceiroScreen: React.FC = () => {
       const totFiados = fList.reduce((acc, f) => acc + f.saldo, 0);
       const dList = FinanceiroService.getDespesas();
       const totDesp = dList.reduce((acc, d) => acc + d.valor, 0);
+      const gList = FinanceiroService.getGanhosPorMes(6);
 
       setDashboard(dash);
       setFiados(fList);
       setTotalFiados(totFiados);
       setDespesas(dList);
       setTotalDespesas(totDesp);
+      setGanhosMeses(gList);
     } catch (e) {
       console.warn('Erro ao carregar financeiro:', e);
     } finally {
@@ -84,11 +91,35 @@ export const FinanceiroScreen: React.FC = () => {
   };
 
   const saldoLiquido = (dashboard?.recebido || 0) - totalDespesas;
+  const totalFaturadoAcumulado = ganhosMeses.reduce((acc, m) => acc + m.faturamento, 0);
+  const lucroAcumulado = ganhosMeses.reduce((acc, m) => acc + m.lucroLiquido, 0);
+  const totalGaloesAcumulado = ganhosMeses.reduce((acc, m) => acc + m.totalGaloes, 0);
+
+  // Linha cronológica para o gráfico (da esquerda para direita: mais antigo -> atual)
+  const mesesCronologicos = [...ganhosMeses].reverse();
+  const maxFaturamentoGrafico = Math.max(...mesesCronologicos.map((m) => m.faturamento), 100);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Abas */}
       <View style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <TouchableOpacity
+          style={[styles.tabItem, abaAtiva === 'ganhos' && { borderBottomColor: colors.primary, borderBottomWidth: 3 }]}
+          onPress={() => {
+            HapticService.light();
+            setAbaAtiva('ganhos');
+          }}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              { color: abaAtiva === 'ganhos' ? colors.primary : colors.textMuted, fontWeight: abaAtiva === 'ganhos' ? '800' : '600' },
+            ]}
+          >
+            Ganhos/Mês
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.tabItem, abaAtiva === 'caixa' && { borderBottomColor: colors.primary, borderBottomWidth: 3 }]}
           onPress={() => {
@@ -119,7 +150,7 @@ export const FinanceiroScreen: React.FC = () => {
               { color: abaAtiva === 'fiados' ? colors.primary : colors.textMuted, fontWeight: abaAtiva === 'fiados' ? '800' : '600' },
             ]}
           >
-            Caderneta Fiados ({fiados.length})
+            Fiados ({fiados.length})
           </Text>
         </TouchableOpacity>
 
@@ -140,6 +171,210 @@ export const FinanceiroScreen: React.FC = () => {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Conteúdo Aba 0: Ganhos por Mês */}
+      {abaAtiva === 'ganhos' && (
+        <ScrollView
+          style={styles.scrollBody}
+          contentContainerStyle={{ paddingBottom: 110 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        >
+          {/* Card Resumo Consolidado */}
+          <View style={[styles.dreCard, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 14 }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '800' }}>
+                HISTÓRICO CONSOLIDADO (ÚLTIMOS 6 MESES)
+              </Text>
+              <View style={{ backgroundColor: colors.primaryLight, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>EVOLUÇÃO</Text>
+              </View>
+            </View>
+
+            <Text
+              style={[
+                styles.dreBigNum,
+                { color: lucroAcumulado >= 0 ? colors.success : colors.danger },
+              ]}
+            >
+              R$ {lucroAcumulado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </Text>
+            <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+              Lucro Líquido Real Acumulado
+            </Text>
+
+            <View style={[styles.dreDivider, { borderTopColor: colors.border }]} />
+
+            <View style={styles.dreRow}>
+              <View>
+                <Text style={{ fontSize: 11, color: colors.textMuted }}>Total Faturado</Text>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: colors.primary }}>
+                  R$ {totalFaturadoAcumulado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ fontSize: 11, color: colors.textMuted }}>Total de Galões</Text>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: colors.text }}>
+                  {totalGaloesAcumulado} entregues
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Gráfico Comparativo Visual de Barras */}
+          <View style={[styles.graficoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <BarChart3 size={18} color={colors.primary} />
+                <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 0 }]}>
+                  Comparativo Mensal
+                </Text>
+              </View>
+              <Text style={{ fontSize: 11, color: colors.textMuted }}>Faturamento (R$)</Text>
+            </View>
+
+            <View style={styles.barsContainer}>
+              {mesesCronologicos.map((m) => {
+                const alturaPercentual = Math.max(10, Math.round((m.faturamento / maxFaturamentoGrafico) * 110));
+                const isDestaque = m.isMesAtual;
+
+                return (
+                  <View key={m.mesAno} style={styles.barColumn}>
+                    {/* Rótulo de Valor */}
+                    <Text style={{ fontSize: 9, fontWeight: '700', color: colors.textMuted, marginBottom: 4, height: 12 }}>
+                      {m.faturamento > 0
+                        ? m.faturamento >= 1000
+                          ? `${(m.faturamento / 1000).toFixed(1)}k`
+                          : m.faturamento.toFixed(0)
+                        : '-'}
+                    </Text>
+
+                    {/* Barra Vertical */}
+                    <View style={styles.barTrack}>
+                      <View
+                        style={[
+                          styles.barFill,
+                          {
+                            height: alturaPercentual,
+                            backgroundColor: isDestaque ? colors.primary : colors.primaryLight,
+                            borderColor: isDestaque ? colors.primary : colors.border,
+                            borderWidth: isDestaque ? 1.5 : 1,
+                          },
+                        ]}
+                      />
+                    </View>
+
+                    {/* Rótulo do Mês */}
+                    <View
+                      style={[
+                        styles.barMonthBadge,
+                        isDestaque && { backgroundColor: colors.primary },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.barMonthText,
+                          { color: isDestaque ? '#fff' : colors.textMuted, fontWeight: isDestaque ? '900' : '600' },
+                        ]}
+                      >
+                        {m.rotuloCurto.split('/')[0]}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Lista Detalhada Mês a Mês */}
+          <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 18, marginBottom: 10 }]}>
+            Detalhamento por Mês
+          </Text>
+
+          <View style={{ gap: 10 }}>
+            {ganhosMeses.map((m) => {
+              const isLucroPositivo = m.lucroLiquido >= 0;
+
+              return (
+                <View
+                  key={m.mesAno}
+                  style={[
+                    styles.mesCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: m.isMesAtual ? colors.primary : colors.border,
+                      borderWidth: m.isMesAtual ? 1.5 : 1,
+                    },
+                  ]}
+                >
+                  {/* Cabeçalho do Card */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Calendar size={16} color={colors.primary} />
+                      <Text style={[styles.mesCardTitulo, { color: colors.text }]}>{m.rotuloMes}</Text>
+                    </View>
+                    {m.isMesAtual && (
+                      <View style={{ backgroundColor: '#dcfce7', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
+                        <Text style={{ color: '#15803d', fontSize: 10, fontWeight: '800' }}>MÊS ATUAL</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Lucro Líquido do Mês */}
+                  <View style={{ marginVertical: 10 }}>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '700' }}>
+                      LUCRO LÍQUIDO DO MÊS
+                    </Text>
+                    <Text
+                      style={[
+                        styles.mesCardLucro,
+                        { color: isLucroPositivo ? colors.success : colors.danger },
+                      ]}
+                    >
+                      {isLucroPositivo ? '+ ' : ''}R$ {m.lucroLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </Text>
+                  </View>
+
+                  {/* Linha Faturamento x Despesas */}
+                  <View style={[styles.mesCardGrid, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 10, color: colors.textMuted }}>Faturamento</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: colors.text }}>
+                        R$ {m.faturamento.toFixed(2)}
+                      </Text>
+                    </View>
+                    <View style={{ width: 1, backgroundColor: colors.border }} />
+                    <View style={{ flex: 1, paddingLeft: 8 }}>
+                      <Text style={{ fontSize: 10, color: colors.textMuted }}>Despesas</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: colors.danger }}>
+                        - R$ {m.despesas.toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Linha Galões e Ticket Médio */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Droplets size={14} color={colors.primary} />
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text }}>
+                        {m.totalGaloes} {m.totalGaloes === 1 ? 'galão' : 'galões'}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                        • {m.totalPedidos} {m.totalPedidos === 1 ? 'pedido' : 'pedidos'}
+                      </Text>
+                    </View>
+
+                    <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                      Ticket médio: <Text style={{ fontWeight: '700', color: colors.text }}>R$ {m.ticketMedio.toFixed(2)}</Text>
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      )}
 
       {/* Conteúdo Aba 1: Caixa & DRE */}
       {abaAtiva === 'caixa' && (
@@ -340,14 +575,17 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
+    paddingHorizontal: 4,
   },
   tabItem: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 13,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 11,
+    textAlign: 'center',
   },
   scrollBody: {
     padding: 16,
@@ -461,5 +699,63 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '900',
+  },
+  // Estilos Ganhos por Mês
+  graficoCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 8,
+  },
+  barsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    height: 155,
+    paddingTop: 10,
+    paddingHorizontal: 4,
+  },
+  barColumn: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  barTrack: {
+    height: 110,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    width: 24,
+  },
+  barFill: {
+    width: 20,
+    borderRadius: 6,
+  },
+  barMonthBadge: {
+    marginTop: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  barMonthText: {
+    fontSize: 10,
+  },
+  mesCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+  },
+  mesCardTitulo: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  mesCardLucro: {
+    fontSize: 22,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+  mesCardGrid: {
+    flexDirection: 'row',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
   },
 });

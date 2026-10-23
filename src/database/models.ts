@@ -172,6 +172,20 @@ export interface MovimentacaoEstoque {
   data: string;
 }
 
+export interface GanhosMes {
+  mesAno: string; // "2026-10"
+  rotuloMes: string; // "Outubro / 2026"
+  rotuloCurto: string; // "Out/26"
+  faturamento: number;
+  recebido: number;
+  despesas: number;
+  lucroLiquido: number;
+  totalPedidos: number;
+  totalGaloes: number;
+  ticketMedio: number;
+  isMesAtual: boolean;
+}
+
 export interface PedidoItem {
   id?: string;
   pedidoId?: string;

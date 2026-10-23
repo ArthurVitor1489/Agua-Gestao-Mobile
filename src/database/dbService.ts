@@ -14,6 +14,7 @@ import {
   RecompraOportunidade,
   StatusPedido,
   FormaPagamento,
+  GanhosMes,
 } from './models';
 
 // UUID helper
@@ -1183,6 +1184,118 @@ export const FinanceiroService = {
       status: 'PAGA',
       createdAt: now,
     };
+  },
+
+  getGanhosPorMes(limiteMeses: number = 6): GanhosMes[] {
+    const db = getDatabase();
+    const mesesMap: Record<
+      string,
+      {
+        faturamento: number;
+        recebido: number;
+        despesas: number;
+        totalPedidos: number;
+        totalGaloes: number;
+      }
+    > = {};
+
+    // 1. Gerar lista cronológica dos últimos X meses (garante que meses sem vendas também apareçam)
+    const agora = new Date();
+    const anoAtual = agora.getFullYear();
+    const mesAtual = agora.getMonth();
+
+    const nomesMeses = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    const nomesMesesCurtos = [
+      'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+      'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+    ];
+
+    for (let i = limiteMeses - 1; i >= 0; i--) {
+      const d = new Date(anoAtual, mesAtual - i, 1);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const chave = `${yyyy}-${mm}`;
+      mesesMap[chave] = {
+        faturamento: 0,
+        recebido: 0,
+        despesas: 0,
+        totalPedidos: 0,
+        totalGaloes: 0,
+      };
+    }
+
+    // 2. Totalizar Vendas e Galões por mês
+    try {
+      const pedidosRows = db.getAllSync<any>(
+        "SELECT id, numero, data, valorTotal, formaPagamento, itensJson FROM pedidos WHERE status != 'CANCELADO'"
+      );
+
+      for (const p of pedidosRows) {
+        if (!p.data) continue;
+        const chave = p.data.substring(0, 7); // "YYYY-MM"
+        if (!mesesMap[chave]) {
+          mesesMap[chave] = { faturamento: 0, recebido: 0, despesas: 0, totalPedidos: 0, totalGaloes: 0 };
+        }
+        mesesMap[chave].faturamento += p.valorTotal || 0;
+        mesesMap[chave].recebido += p.valorTotal || 0;
+        mesesMap[chave].totalPedidos += 1;
+
+        try {
+          const itens = JSON.parse(p.itensJson || '[]');
+          for (const it of itens) {
+            mesesMap[chave].totalGaloes += it.quantidade || 0;
+          }
+        } catch {}
+      }
+    } catch (e) {
+      console.warn('Erro ao totalizar vendas mensais:', e);
+    }
+
+    // 3. Totalizar Despesas por mês
+    try {
+      const despesasRows = db.getAllSync<any>('SELECT data, valor FROM despesas');
+      for (const d of despesasRows) {
+        if (!d.data) continue;
+        const chave = d.data.substring(0, 7);
+        if (!mesesMap[chave]) {
+          mesesMap[chave] = { faturamento: 0, recebido: 0, despesas: 0, totalPedidos: 0, totalGaloes: 0 };
+        }
+        mesesMap[chave].despesas += d.valor || 0;
+      }
+    } catch (e) {
+      console.warn('Erro ao totalizar despesas mensais:', e);
+    }
+
+    // 4. Montar array ordenado (mais recente primeiro)
+    const chavesOrdenadas = Object.keys(mesesMap).sort().reverse();
+    const mesAtualChave = `${anoAtual}-${String(mesAtual + 1).padStart(2, '0')}`;
+
+    return chavesOrdenadas.slice(0, limiteMeses).map((chave) => {
+      const dados = mesesMap[chave];
+      const [yStr, mStr] = chave.split('-');
+      const y = parseInt(yStr, 10);
+      const mIdx = parseInt(mStr, 10) - 1;
+
+      const lucroLiquido = dados.faturamento - dados.despesas;
+      const ticketMedio = dados.totalPedidos > 0 ? dados.faturamento / dados.totalPedidos : 0;
+
+      return {
+        mesAno: chave,
+        rotuloMes: `${nomesMeses[mIdx]} / ${y}`,
+        rotuloCurto: `${nomesMesesCurtos[mIdx]}/${String(y).slice(-2)}`,
+        faturamento: dados.faturamento,
+        recebido: dados.recebido,
+        despesas: dados.despesas,
+        lucroLiquido,
+        totalPedidos: dados.totalPedidos,
+        totalGaloes: dados.totalGaloes,
+        ticketMedio,
+        isMesAtual: chave === mesAtualChave,
+      };
+    });
   },
 };
 
