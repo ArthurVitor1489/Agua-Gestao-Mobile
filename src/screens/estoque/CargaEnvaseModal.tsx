@@ -14,7 +14,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { EstoqueService } from '../../database/dbService';
 import { Produto } from '../../database/models';
 import { HapticService } from '../../services/hapticService';
-import { X, Truck, Check, Plus, Minus, ArrowRightLeft, Sparkles } from 'lucide-react-native';
+import { X, Truck, Check } from 'lucide-react-native';
 
 interface CargaEnvaseModalProps {
   visible: boolean;
@@ -37,8 +37,8 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
   );
 
   const [selectedProdutoId, setSelectedProdutoId] = useState<string>('');
-  const [qtdCheios, setQtdCheios] = useState('50');
-  const [qtdVazios, setQtdVazios] = useState('50');
+  const [qtdCheios, setQtdCheios] = useState('');
+  const [qtdVazios, setQtdVazios] = useState('');
   const [observacao, setObservacao] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -50,11 +50,6 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
 
   const produtoSelecionado = produtos.find((p) => p.id === selectedProdutoId);
 
-  const aplicarTrocaExata = () => {
-    HapticService.light();
-    setQtdVazios(qtdCheios);
-  };
-
   const handleSalvar = async () => {
     const numCheios = parseInt(qtdCheios, 10) || 0;
     const numVazios = parseInt(qtdVazios, 10) || 0;
@@ -65,7 +60,7 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
     }
 
     if (numCheios <= 0 && numVazios <= 0) {
-      Alert.alert('Atenção', 'Informe a quantidade de garrafões cheios recebidos ou vazios entregues.');
+      Alert.alert('Atenção', 'Digite a quantidade de garrafões cheios recebidos ou vazios devolvidos.');
       return;
     }
 
@@ -81,8 +76,8 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
       });
 
       await HapticService.success();
-      setQtdCheios('50');
-      setQtdVazios('50');
+      setQtdCheios('');
+      setQtdVazios('');
       setObservacao('');
       onSuccess();
     } catch (e: any) {
@@ -151,86 +146,58 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
             {/* 2. Garrafões Cheios Recebidos */}
             <View style={[styles.cardInput, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <View>
+                <View style={{ flex: 1, paddingRight: 10 }}>
                   <Text style={[styles.inputHeading, { color: colors.success }]}>
                     🟢 CHEIOS RECEBIDOS (+ Estoque)
                   </Text>
-                  <Text style={{ color: colors.textMuted, fontSize: 11 }}>
+                  <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>
                     Garrafões cheios que desceram do caminhão
                   </Text>
                 </View>
                 <TextInput
-                  style={[styles.numericInput, { color: colors.text, borderColor: colors.success }]}
+                  style={[
+                    styles.numericInput,
+                    {
+                      backgroundColor: colors.card,
+                      color: colors.text,
+                      borderColor: qtdCheios ? colors.success : colors.border,
+                    },
+                  ]}
                   keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.textMuted}
                   value={qtdCheios}
                   onChangeText={setQtdCheios}
-                  selectTextOnFocus
                 />
               </View>
-
-              {/* Botões rápidos */}
-              <View style={styles.quickBtnRow}>
-                {[10, 25, 50, 100, 150].map((n) => (
-                  <TouchableOpacity
-                    key={n}
-                    style={[styles.quickBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onPress={() => {
-                      HapticService.light();
-                      setQtdCheios(String(n));
-                    }}
-                  >
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text }}>{n}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
             </View>
-
-            {/* Botão de Troca 1 por 1 */}
-            <TouchableOpacity
-              style={[styles.trocaExataBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
-              onPress={aplicarTrocaExata}
-              activeOpacity={0.7}
-            >
-              <ArrowRightLeft size={16} color={colors.primary} />
-              <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 12 }}>
-                Troca Padrão: Devolveu {qtdCheios || '0'} Vazios (1 por 1)
-              </Text>
-            </TouchableOpacity>
 
             {/* 3. Garrafões Vazios Devolvidos */}
             <View style={[styles.cardInput, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <View>
+                <View style={{ flex: 1, paddingRight: 10 }}>
                   <Text style={[styles.inputHeading, { color: colors.primary }]}>
                     🔵 VAZIOS ENVIADOS (- Pátio)
                   </Text>
-                  <Text style={{ color: colors.textMuted, fontSize: 11 }}>
+                  <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>
                     Vazios entregues à fábrica para recarga
                   </Text>
                 </View>
                 <TextInput
-                  style={[styles.numericInput, { color: colors.text, borderColor: colors.primary }]}
+                  style={[
+                    styles.numericInput,
+                    {
+                      backgroundColor: colors.card,
+                      color: colors.text,
+                      borderColor: qtdVazios ? colors.primary : colors.border,
+                    },
+                  ]}
                   keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.textMuted}
                   value={qtdVazios}
                   onChangeText={setQtdVazios}
-                  selectTextOnFocus
                 />
-              </View>
-
-              {/* Botões rápidos */}
-              <View style={styles.quickBtnRow}>
-                {[0, 10, 25, 50, 100].map((n) => (
-                  <TouchableOpacity
-                    key={n}
-                    style={[styles.quickBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onPress={() => {
-                      HapticService.light();
-                      setQtdVazios(String(n));
-                    }}
-                  >
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text }}>{n}</Text>
-                  </TouchableOpacity>
-                ))}
               </View>
             </View>
 
@@ -329,35 +296,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   numericInput: {
-    width: 80,
-    height: 44,
-    borderRadius: 10,
+    width: 90,
+    height: 48,
+    borderRadius: 12,
     borderWidth: 1.5,
     textAlign: 'center',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '900',
-  },
-  quickBtnRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
-  },
-  quickBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  trocaExataBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    marginBottom: 10,
   },
   input: {
     height: 46,
