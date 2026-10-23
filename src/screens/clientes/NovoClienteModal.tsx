@@ -257,66 +257,34 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
                       </Text>
                     </View>
 
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={{ fontSize: 13, fontWeight: 'bold', color: colors.text }}>R$</Text>
-                        <TextInput
-                          style={[
-                            styles.priceInput,
-                            {
-                              backgroundColor: colors.card,
-                              color: colors.text,
-                              borderColor: valorAtual ? colors.primary : colors.border,
-                            },
-                          ]}
-                          keyboardType="numeric"
-                          placeholder={prod.precoVenda.toFixed(2)}
-                          placeholderTextColor={colors.textMuted}
-                          value={valorAtual}
-                          onChangeText={(t) => setPrecoDoProduto(prod.id, t)}
-                        />
-                      </View>
-
-                      {/* Botões rápidos de preço */}
-                      <View style={styles.quickPillsRow}>
-                        {[8, 9, 10, 11, 12].map((pVal) => (
-                          <TouchableOpacity
-                            key={pVal}
-                            style={[
-                              styles.quickPill,
-                              {
-                                backgroundColor: valorAtual === String(pVal) ? colors.primary : colors.card,
-                                borderColor: colors.border,
-                              },
-                            ]}
-                            onPress={() => {
-                              HapticService.light();
-                              setPrecoDoProduto(prod.id, String(pVal));
-                            }}
-                          >
-                            <Text
-                              style={{
-                                fontSize: 11,
-                                fontWeight: '700',
-                                color: valorAtual === String(pVal) ? '#fff' : colors.text,
-                              }}
-                            >
-                              {pVal}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                        {valorAtual ? (
-                          <TouchableOpacity
-                            style={[styles.quickPill, { backgroundColor: '#fee2e2', borderColor: '#fca5a5' }]}
-                            onPress={() => {
-                              HapticService.light();
-                              setPrecoDoProduto(prod.id, '');
-                            }}
-                          >
-                            <Text style={{ fontSize: 10, fontWeight: '700', color: colors.danger }}>Limpar</Text>
-                          </TouchableOpacity>
-                        ) : null}
-                      </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '800', color: colors.textMuted }}>R$</Text>
+                      <TextInput
+                        style={[
+                          styles.priceInput,
+                          {
+                            backgroundColor: colors.card,
+                            color: colors.text,
+                            borderColor: valorAtual ? colors.primary : colors.border,
+                          },
+                        ]}
+                        keyboardType="decimal-pad"
+                        placeholder={prod.precoVenda.toFixed(2)}
+                        placeholderTextColor={colors.textMuted}
+                        value={valorAtual}
+                        onChangeText={(t) => setPrecoDoProduto(prod.id, t)}
+                      />
+                      {valorAtual ? (
+                        <TouchableOpacity
+                          style={{ padding: 6 }}
+                          onPress={() => {
+                            HapticService.light();
+                            setPrecoDoProduto(prod.id, '');
+                          }}
+                        >
+                          <X size={16} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      ) : null}
                     </View>
                   </View>
                 );
@@ -503,24 +471,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   priceInput: {
-    width: 76,
-    height: 38,
-    borderRadius: 8,
+    width: 90,
+    height: 42,
+    borderRadius: 10,
     borderWidth: 1.5,
     textAlign: 'center',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  quickPillsRow: {
-    flexDirection: 'row',
-    gap: 4,
-    marginTop: 6,
-  },
-  quickPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
+    fontSize: 16,
+    fontWeight: '800',
   },
   gpsBtn: {
     flexDirection: 'row',
