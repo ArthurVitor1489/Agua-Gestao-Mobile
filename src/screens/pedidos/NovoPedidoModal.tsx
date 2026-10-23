@@ -9,6 +9,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Keyboard,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { ClientesService, ProdutosService, PedidosService } from '../../database/dbService';
@@ -83,69 +84,85 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
   };
 
   const selecionarCliente = (c: Cliente) => {
+    Keyboard.dismiss();
     HapticService.light();
     setSelectedCliente(c);
     setSearchCliente('');
 
-    // Se já houver produtos no carrinho, atualiza com a tabela de preço especial do cliente
-    if (itensCarrinho.length > 0 && c.precosEspeciais) {
-      const atualizados = itensCarrinho.map((item) => {
-        const especial = c.precosEspeciais?.find((pe) => pe.produtoId === item.produto.id);
-        return {
-          ...item,
-          valorUnitario: especial ? especial.preco : item.produto.precoVenda,
-        };
-      });
-      setItensCarrinho(atualizados);
-    }
+    // Já abre automaticamente os itens do pedido com todos os produtos da distribuidora
+    // e aplica a tabela de preços especiais negociada com este cliente!
+    const itensAtualizados = produtos.map((prod) => {
+      const esp = c.precosEspeciais?.find((pe) => pe.produtoId === prod.id);
+      const precoUnit = esp ? esp.preco : prod.precoVenda;
+      const jaExistente = itensCarrinho.find((item) => item.produto.id === prod.id);
+
+      return {
+        produto: prod,
+        quantidade: jaExistente ? jaExistente.quantidade : 0,
+        valorUnitario: precoUnit,
+      };
+    });
+
+    setItensCarrinho(itensAtualizados);
   };
 
-  const adicionarProduto = (prod: Produto) => {
-    HapticService.light();
-    const index = itensCarrinho.findIndex((i) => i.produto.id === prod.id);
+  const setQuantidadeDireta = (prodId: string, valStr: string) => {
+    const cleaned = valStr.replace(/[^0-9]/g, '');
+    const num = cleaned === '' ? 0 : parseInt(cleaned, 10);
 
-    // Verificar se o cliente tem preço especial para este produto
-    let precoUnit = prod.precoVenda;
-    if (selectedCliente?.precosEspeciais) {
-      const esp = selectedCliente.precosEspeciais.find((p) => p.produtoId === prod.id);
-      if (esp) precoUnit = esp.preco;
-    }
+    setItensCarrinho((prev) => {
+      const index = prev.findIndex((i) => i.produto.id === prodId);
+      if (index === -1) {
+        const prod = produtos.find((p) => p.id === prodId);
+        if (!prod) return prev;
+        const esp = selectedCliente?.precosEspeciais?.find((p) => p.produtoId === prod.id);
+        const precoUnit = esp ? esp.preco : prod.precoVenda;
+        return [...prev, { produto: prod, quantidade: num, valorUnitario: precoUnit }];
+      }
 
-    if (index !== -1) {
-      const novos = [...itensCarrinho];
-      novos[index].quantidade += 1;
-      setItensCarrinho(novos);
-    } else {
-      setItensCarrinho([
-        ...itensCarrinho,
-        {
-          produto: prod,
-          quantidade: 1,
-          valorUnitario: precoUnit,
-        },
-      ]);
-    }
+      const novos = [...prev];
+      novos[index] = {
+        ...novos[index],
+        quantidade: num,
+      };
+      return novos;
+    });
   };
 
   const alterarQtd = (prodId: string, delta: number) => {
     HapticService.light();
-    const index = itensCarrinho.findIndex((i) => i.produto.id === prodId);
-    if (index === -1) return;
+    setItensCarrinho((prev) => {
+      const index = prev.findIndex((i) => i.produto.id === prodId);
+      if (index === -1) {
+        if (delta <= 0) return prev;
+        const prod = produtos.find((p) => p.id === prodId);
+        if (!prod) return prev;
+        const esp = selectedCliente?.precosEspeciais?.find((p) => p.produtoId === prod.id);
+        const precoUnit = esp ? esp.preco : prod.precoVenda;
+        return [...prev, { produto: prod, quantidade: delta, valorUnitario: precoUnit }];
+      }
 
-    const novos = [...itensCarrinho];
-    const novaQtd = novos[index].quantidade + delta;
+      const novos = [...prev];
+      const novaQtd = Math.max(0, (novos[index].quantidade || 0) + delta);
+      novos[index] = {
+        ...novos[index],
+        quantidade: novaQtd,
+      };
+      return novos;
+    });
+  };
 
-    if (novaQtd <= 0) {
-      novos.splice(index, 1);
-    } else {
-      novos[index].quantidade = novaQtd;
-    }
-    setItensCarrinho(novos);
+  const adicionarProduto = (prod: Produto) => {
+    alterarQtd(prod.id, 1);
   };
 
   // Cálculos de Total
   const subtotal = itensCarrinho.reduce(
-    (acc, i) => acc + i.quantidade * i.valorUnitario,
+    (acc, i) => acc + (i.quantidade || 0) * i.valorUnitario,
+    0
+  );
+  const totalGaloes = itensCarrinho.reduce(
+    (acc, i) => acc + (i.quantidade || 0),
     0
   );
   const numDesconto = parseFloat(desconto.replace(',', '.')) || 0;
@@ -161,8 +178,9 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
       Alert.alert('Atenção', 'Selecione o cliente para o pedido.');
       return;
     }
-    if (itensCarrinho.length === 0) {
-      Alert.alert('Atenção', 'Adicione pelo menos 1 produto no pedido.');
+    const itensValidos = itensCarrinho.filter((i) => (i.quantidade || 0) > 0);
+    if (itensValidos.length === 0) {
+      Alert.alert('Atenção', 'Digite a quantidade de pelo menos 1 produto no pedido.');
       return;
     }
 
@@ -172,7 +190,7 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
 
       const payload = {
         clienteId: selectedCliente.id,
-        itens: itensCarrinho.map((i) => ({
+        itens: itensValidos.map((i) => ({
           produtoId: i.produto.id,
           quantidade: i.quantidade,
           valorUnitario: i.valorUnitario,
@@ -227,7 +245,7 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* 1. Seleção de Cliente */}
             <Text style={[styles.sectionLabel, { color: colors.text }]}>1. Cliente</Text>
             {selectedCliente ? (
@@ -352,14 +370,24 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
             {/* 3. Carrinho / Itens Selecionados */}
             {itensCarrinho.length > 0 && (
               <View style={[styles.cartSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Text style={[styles.cartSectionTitle, { color: colors.text }]}>Itens do Pedido</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <Text style={[styles.cartSectionTitle, { color: colors.text, marginBottom: 0 }]}>Itens do Pedido</Text>
+                  {totalGaloes > 0 && (
+                    <View style={{ backgroundColor: colors.primaryLight, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: colors.primary }}>
+                        {totalGaloes} {totalGaloes === 1 ? 'garrafão' : 'garrafões'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
                 {itensCarrinho.map((item) => (
                   <View key={item.produto.id} style={[styles.cartItemRow, { borderBottomColor: colors.border }]}>
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1, paddingRight: 6 }}>
                       <Text style={[styles.cartItemName, { color: colors.text }]}>{item.produto.nome}</Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
                         <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                          R$ {item.valorUnitario.toFixed(2)} un • Sub: R$ {(item.quantidade * item.valorUnitario).toFixed(2)}
+                          R$ {item.valorUnitario.toFixed(2)} un • Sub: R$ {((item.quantidade || 0) * item.valorUnitario).toFixed(2)}
                         </Text>
                         {item.valorUnitario !== item.produto.precoVenda && (
                           <View style={{ backgroundColor: '#dcfce7', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
@@ -368,17 +396,37 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
                         )}
                       </View>
                     </View>
+
                     <View style={styles.qtyControls}>
                       <TouchableOpacity
-                        style={[styles.qtyBtn, { backgroundColor: colors.card }]}
+                        style={[styles.qtyBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
                         onPress={() => alterarQtd(item.produto.id, -1)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         <Minus size={16} color={colors.text} />
                       </TouchableOpacity>
-                      <Text style={[styles.qtyValue, { color: colors.text }]}>{item.quantidade}</Text>
+
+                      <TextInput
+                        style={[
+                          styles.qtyInput,
+                          {
+                            backgroundColor: colors.card,
+                            color: colors.text,
+                            borderColor: (item.quantidade || 0) > 0 ? colors.primary : colors.border,
+                          },
+                        ]}
+                        keyboardType="numeric"
+                        value={item.quantidade === 0 ? '' : String(item.quantidade)}
+                        placeholder="0"
+                        placeholderTextColor={colors.textMuted}
+                        onChangeText={(t) => setQuantidadeDireta(item.produto.id, t)}
+                        selectTextOnFocus
+                      />
+
                       <TouchableOpacity
-                        style={[styles.qtyBtn, { backgroundColor: colors.card }]}
+                        style={[styles.qtyBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
                         onPress={() => alterarQtd(item.produto.id, 1)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         <Plus size={16} color={colors.text} />
                       </TouchableOpacity>
@@ -677,20 +725,26 @@ const styles = StyleSheet.create({
   qtyControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   qtyBtn: {
-    width: 30,
-    height: 30,
+    width: 34,
+    height: 34,
     borderRadius: 8,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  qtyValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    minWidth: 20,
+  qtyInput: {
+    width: 58,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1.5,
     textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '900',
+    paddingVertical: 0,
+    paddingHorizontal: 4,
   },
   adjustRow: {
     flexDirection: 'row',
