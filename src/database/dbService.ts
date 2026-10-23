@@ -437,53 +437,64 @@ export const EstoqueService = {
 
   getMovimentacoes(): MovimentacaoEstoque[] {
     const db = getDatabase();
+    const lista: MovimentacaoEstoque[] = [];
 
-    // Sincronizar pedidos já gerados que ainda não constavam no extrato
+    // 1. Obter todas as movimentações manuais e de fábrica (Cargas, Avarias, Ajustes)
     try {
-      const pedidosSemMov = db.getAllSync<any>(`
-        SELECT p.id, p.numero, p.data, p.itensJson 
-        FROM pedidos p 
-        WHERE p.status != 'CANCELADO'
-        AND NOT EXISTS (
-          SELECT 1 FROM movimentacoes_estoque m 
-          WHERE m.motivo LIKE '%' || p.numero || '%'
-        )
-      `);
+      const rows = db.getAllSync<any>(
+        "SELECT * FROM movimentacoes_estoque WHERE tipo != 'SAIDA' OR motivo NOT LIKE 'Venda - Pedido%' ORDER BY data DESC LIMIT 200"
+      );
+      for (const r of rows) {
+        lista.push({
+          id: r.id,
+          empresaId: 'local',
+          tipo: r.tipo,
+          quantidade: r.quantidade,
+          produtoId: r.produtoId,
+          produto: r.produtoNome ? ({ nome: r.produtoNome } as any) : null,
+          motivo: r.motivo,
+          data: r.data,
+        });
+      }
+    } catch (e) {
+      console.warn('Erro ao ler movimentacoes_estoque:', e);
+    }
 
-      for (const ped of pedidosSemMov) {
+    // 2. Obter saídas de todos os pedidos reais faturados e lançados no app
+    try {
+      const pedidos = db.getAllSync<any>(
+        "SELECT id, numero, clienteNome, data, itensJson, status FROM pedidos WHERE status != 'CANCELADO' ORDER BY numero DESC, data DESC LIMIT 200"
+      );
+
+      for (const ped of pedidos) {
         const itens: PedidoItem[] = JSON.parse(ped.itensJson || '[]');
         for (const it of itens) {
-          const prod = db.getFirstSync<any>('SELECT nome FROM produtos WHERE id = ?', [it.produtoId]);
-          const prodNome = it.produto?.nome || prod?.nome || 'Água Mineral';
-          db.runSync(
-            `INSERT INTO movimentacoes_estoque (id, produtoId, produtoNome, tipo, quantidade, motivo, data)
-             VALUES (?, ?, ?, 'SAIDA', ?, ?, ?)`,
-            [
-              generateId(),
-              it.produtoId,
-              prodNome,
-              it.quantidade,
-              `Venda - Pedido #${ped.numero} (${prodNome})`,
-              ped.data,
-            ]
-          );
+          const prodNome = it.produto?.nome || 'Galão de Água 20L';
+          lista.push({
+            id: `mov-ped-${ped.id}-${it.produtoId || it.id || Math.random()}`,
+            empresaId: 'local',
+            tipo: 'SAIDA',
+            quantidade: it.quantidade,
+            produtoId: it.produtoId,
+            produto: { nome: prodNome } as any,
+            motivo: `Venda - Pedido #${ped.numero} (${ped.clienteNome || 'Cliente'})`,
+            pedidoId: ped.id,
+            data: ped.data,
+          });
         }
       }
     } catch (e) {
-      console.warn('Erro ao sincronizar pedidos no extrato:', e);
+      console.warn('Erro ao carregar vendas de pedidos para o extrato:', e);
     }
 
-    const rows = db.getAllSync<any>('SELECT * FROM movimentacoes_estoque ORDER BY data DESC LIMIT 200');
-    return rows.map((r) => ({
-      id: r.id,
-      empresaId: 'local',
-      tipo: r.tipo,
-      quantidade: r.quantidade,
-      produtoId: r.produtoId,
-      produto: r.produtoNome ? ({ nome: r.produtoNome } as any) : null,
-      motivo: r.motivo,
-      data: r.data,
-    }));
+    // 3. Ordenar todas as entradas e saídas pela data mais recente primeiro
+    lista.sort((a, b) => {
+      const timeA = new Date(a.data).getTime() || 0;
+      const timeB = new Date(b.data).getTime() || 0;
+      return timeB - timeA;
+    });
+
+    return lista;
   },
 
   // 1. CHEGADA DE CARGA DA FÁBRICA (Troca de vazios por cheios ou entrada direta)

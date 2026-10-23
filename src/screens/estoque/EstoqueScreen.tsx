@@ -292,12 +292,13 @@ export const EstoqueScreen: React.FC = () => {
         {/* ---------------- ABA 3: EXTRATO / AUDITORIA ---------------- */}
         {abaAtiva === 'auditoria' && (
           <View style={{ gap: 8 }}>
-            {movimentacoes.slice(0, 40).map((m) => {
+            {movimentacoes.slice(0, 100).map((m) => {
               const isEntrada = m.tipo === 'ENTRADA' || m.tipo === 'DEVOLUCAO';
               const isAvaria = m.motivo?.toLowerCase().includes('avaria');
               const Icon = isEntrada ? ArrowUpRight : ArrowDownRight;
               const cor = isAvaria ? colors.secondary : isEntrada ? colors.success : colors.danger;
-              const dataFormatada = new Date(m.data).toLocaleString('pt-BR');
+              const dataObj = new Date(m.data);
+              const dataFormatada = !isNaN(dataObj.getTime()) ? dataObj.toLocaleString('pt-BR') : m.data;
 
               return (
                 <View
