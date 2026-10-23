@@ -1,41 +1,73 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { ConfigService } from '../../database/dbService';
 import { ConfiguracoesModal } from '../../screens/configuracoes/ConfiguracoesModal';
 import { HapticService } from '../../services/hapticService';
+import { SupabaseClientService } from '../../services/supabaseClient';
+import { CloudSyncService } from '../../services/cloudSyncService';
 import {
   Building2,
   Sun,
   Moon,
   Sparkles,
-  ShieldCheck,
   Smartphone,
   Settings,
+  Cloud,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const Header: React.FC = () => {
   const { colors, isDark, setThemeMode } = useTheme();
-  const { isTrialActive, daysRemaining, openPaywall, isSubscribed } = useSubscription();
+  const { isTrialActive, daysRemaining, openPaywall } = useSubscription();
   const insets = useSafeAreaInsets();
   const [nomeDistribuidora, setNomeDistribuidora] = useState('Água Gestão Pro');
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [modalInitialTab, setModalInitialTab] = useState<'produtos' | 'distribuidora' | 'nuvem' | 'licenca'>('produtos');
+  const [isCloudConfigured, setIsCloudConfigured] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const carregarConfig = () => {
     const cfg = ConfigService.getConfig();
     if (cfg?.nomeDistribuidora) {
       setNomeDistribuidora(cfg.nomeDistribuidora);
     }
+    const sup = SupabaseClientService.getConfig();
+    setIsCloudConfigured(sup.isConfigured);
   };
 
   useEffect(() => {
     carregarConfig();
+
+    const unsubscribe = CloudSyncService.subscribeStatus((status) => {
+      setIsSyncing(status === 'syncing');
+    });
+
+    // Se já tiver nuvem configurada, tenta iniciar realtime
+    if (SupabaseClientService.getConfig().isConfigured) {
+      CloudSyncService.iniciarRealtime();
+    }
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const toggleTheme = () => {
     setThemeMode(isDark ? 'light' : 'dark');
+  };
+
+  const handlePressCloudBadge = async () => {
+    await HapticService.light();
+    if (isCloudConfigured) {
+      if (!isSyncing) {
+        CloudSyncService.sincronizarTudo();
+      }
+    } else {
+      setModalInitialTab('nuvem');
+      setShowConfigModal(true);
+    }
   };
 
   const safeTopPadding = Math.max(insets.top, Platform.OS === 'ios' ? 44 : 32);
@@ -62,11 +94,35 @@ export const Header: React.FC = () => {
 
         {/* Botões do Topo */}
         <View style={styles.actionsRow}>
-          {/* Badge 100% Offline / Local */}
-          <View style={[styles.offlineBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Smartphone size={12} color={colors.success} />
-            <Text style={[styles.offlineText, { color: colors.success }]}>Local</Text>
-          </View>
+          {/* Badge Cloud / Nuvem / Local */}
+          <TouchableOpacity
+            style={[
+              styles.offlineBadge,
+              {
+                backgroundColor: isCloudConfigured ? '#ecfdf5' : colors.surface,
+                borderColor: isCloudConfigured ? '#a7f3d0' : colors.border,
+              },
+            ]}
+            onPress={handlePressCloudBadge}
+            activeOpacity={0.7}
+          >
+            {isSyncing ? (
+              <>
+                <ActivityIndicator size="small" color="#059669" style={{ transform: [{ scale: 0.6 }] }} />
+                <Text style={[styles.offlineText, { color: '#059669' }]}>Sincronizando</Text>
+              </>
+            ) : isCloudConfigured ? (
+              <>
+                <Cloud size={12} color="#059669" />
+                <Text style={[styles.offlineText, { color: '#059669' }]}>Nuvem OK</Text>
+              </>
+            ) : (
+              <>
+                <Smartphone size={12} color={colors.success} />
+                <Text style={[styles.offlineText, { color: colors.success }]}>Local</Text>
+              </>
+            )}
+          </TouchableOpacity>
 
           {/* Alternar Tema */}
           <TouchableOpacity
@@ -82,6 +138,7 @@ export const Header: React.FC = () => {
             style={[styles.iconButton, { backgroundColor: colors.surface }]}
             onPress={() => {
               HapticService.light();
+              setModalInitialTab('produtos');
               setShowConfigModal(true);
             }}
             activeOpacity={0.7}
@@ -113,6 +170,7 @@ export const Header: React.FC = () => {
       {/* Modal de Configurações e Gestão de Produtos */}
       <ConfiguracoesModal
         visible={showConfigModal}
+        initialTab={modalInitialTab}
         onClose={() => setShowConfigModal(false)}
         onConfigUpdated={carregarConfig}
       />
@@ -160,7 +218,7 @@ const styles = StyleSheet.create({
   },
   offlineText: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   iconButton: {
     width: 36,
@@ -170,9 +228,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   trialBanner: {
-    marginTop: 8,
-    paddingHorizontal: 12,
+    marginTop: 10,
     paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
     flexDirection: 'row',
@@ -182,6 +240,7 @@ const styles = StyleSheet.create({
   trialBannerText: {
     fontSize: 12,
     color: '#92400e',
+    fontWeight: '600',
   },
   trialCtaBtn: {
     paddingHorizontal: 10,
@@ -190,17 +249,8 @@ const styles = StyleSheet.create({
   },
   trialCtaText: {
     color: '#fff',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  proActiveBanner: {
-    marginTop: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
 });
