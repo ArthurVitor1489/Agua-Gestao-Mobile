@@ -180,6 +180,30 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   try { db.execSync('ALTER TABLE clientes ADD COLUMN precosEspeciaisJson TEXT;'); } catch {}
   try { db.execSync('ALTER TABLE movimentacoes_estoque ADD COLUMN produtoNome TEXT;'); } catch {}
   try { db.execSync('ALTER TABLE movimentacoes_estoque ADD COLUMN motivo TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE pedidos ADD COLUMN pagamentosJson TEXT;'); } catch {}
+
+  // Auto-cura de fiados: vincula pedidos marcados como FIADO à tabela fiados se ainda não existirem
+  try {
+    const pedidosFiado = db.getAllSync<any>(`
+      SELECT id, numero, clienteId, clienteNome, valorTotal, data, createdAt, formaPagamento
+      FROM pedidos
+      WHERE (formaPagamento = 'FIADO' OR formaPagamento LIKE '%FIADO%')
+        AND status != 'CANCELADO'
+        AND id NOT IN (SELECT pedidoId FROM fiados WHERE pedidoId IS NOT NULL)
+    `);
+
+    for (const ped of pedidosFiado) {
+      const fid = 'fiado-rec-' + ped.id;
+      const dataCriacao = ped.data || ped.createdAt || new Date().toISOString();
+      db.runSync(
+        `INSERT INTO fiados (id, clienteId, clienteNome, pedidoId, pedidoNumero, valorOriginal, valorPago, saldo, situacao, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'ABERTO', ?, ?)`,
+        [fid, ped.clienteId || 'balcao', ped.clienteNome || 'Cliente', ped.id, ped.numero, ped.valorTotal, ped.valorTotal, dataCriacao, dataCriacao]
+      );
+    }
+  } catch (e) {
+    console.warn('Erro ao auto-curar fiados legados:', e);
+  }
 };
 
 const seedInitialData = (db: SQLite.SQLiteDatabase) => {

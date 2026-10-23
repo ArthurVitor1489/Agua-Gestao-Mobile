@@ -1231,6 +1231,19 @@ export const FinanceiroService = {
 
     // 2. Totalizar Vendas e Galões por mês
     try {
+      // Carregar mapa de fiados para saber o saldo REAL em aberto
+      const fiadosRows = db.getAllSync<any>(
+        'SELECT pedidoId, saldo, situacao, valorPago FROM fiados WHERE pedidoId IS NOT NULL'
+      );
+      const fiadosPorPedido: Record<string, { saldo: number; situacao: string; valorPago: number }> = {};
+      for (const f of fiadosRows) {
+        fiadosPorPedido[f.pedidoId] = {
+          saldo: f.saldo || 0,
+          situacao: f.situacao || 'ABERTO',
+          valorPago: f.valorPago || 0,
+        };
+      }
+
       const pedidosRows = db.getAllSync<any>(
         "SELECT id, numero, data, valorTotal, formaPagamento, itensJson FROM pedidos WHERE status != 'CANCELADO'"
       );
@@ -1243,12 +1256,25 @@ export const FinanceiroService = {
         }
         mesesMap[chave].faturamento += p.valorTotal || 0;
         
-        const isFiado = p.formaPagamento === 'FIADO' || String(p.formaPagamento).toUpperCase().includes('FIADO');
-        if (isFiado) {
-          mesesMap[chave].emAberto += p.valorTotal || 0;
+        let pendente = 0;
+        let pago = 0;
+
+        if (fiadosPorPedido[p.id]) {
+          pendente = fiadosPorPedido[p.id].saldo;
+          pago = Math.max(0, (p.valorTotal || 0) - pendente);
         } else {
-          mesesMap[chave].recebido += p.valorTotal || 0;
+          const isFiado = p.formaPagamento === 'FIADO' || String(p.formaPagamento).toUpperCase().includes('FIADO');
+          if (isFiado) {
+            pendente = p.valorTotal || 0;
+            pago = 0;
+          } else {
+            pendente = 0;
+            pago = p.valorTotal || 0;
+          }
         }
+
+        mesesMap[chave].emAberto += pendente;
+        mesesMap[chave].recebido += pago;
 
         mesesMap[chave].totalPedidos += 1;
 
@@ -1332,9 +1358,21 @@ export const DashboardService = {
 
     const dataCorteIso = dataCorte.toISOString();
 
+    // Carregar mapa de fiados para saber o saldo REAL em aberto
+    const fiadosRows = db.getAllSync<any>(
+      'SELECT pedidoId, saldo, situacao FROM fiados WHERE pedidoId IS NOT NULL'
+    );
+    const fiadosPorPedido: Record<string, { saldo: number; situacao: string }> = {};
+    for (const f of fiadosRows) {
+      fiadosPorPedido[f.pedidoId] = {
+        saldo: f.saldo || 0,
+        situacao: f.situacao || 'ABERTO',
+      };
+    }
+
     // 1. Pedidos do período
     const pedidos = db.getAllSync<any>(
-      'SELECT valorTotal, status, formaPagamento FROM pedidos WHERE data >= ?',
+      'SELECT id, valorTotal, status, formaPagamento FROM pedidos WHERE data >= ?',
       [dataCorteIso]
     );
 
@@ -1351,11 +1389,25 @@ export const DashboardService = {
         faturamento += p.valorTotal;
         pedidosRealizados++;
 
-        if (p.formaPagamento === 'FIADO') {
-          emAberto += p.valorTotal;
+        let pendente = 0;
+        let pago = 0;
+
+        if (fiadosPorPedido[p.id]) {
+          pendente = fiadosPorPedido[p.id].saldo;
+          pago = Math.max(0, p.valorTotal - pendente);
         } else {
-          recebido += p.valorTotal;
+          const isFiado = p.formaPagamento === 'FIADO' || String(p.formaPagamento).toUpperCase().includes('FIADO');
+          if (isFiado) {
+            pendente = p.valorTotal;
+            pago = 0;
+          } else {
+            pendente = 0;
+            pago = p.valorTotal;
+          }
         }
+
+        emAberto += pendente;
+        recebido += pago;
 
         // Formas
         if (!formasMap[p.formaPagamento]) {
