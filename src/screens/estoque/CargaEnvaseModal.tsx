@@ -38,7 +38,6 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
 
   const [selectedProdutoId, setSelectedProdutoId] = useState<string>('');
   const [qtdCheios, setQtdCheios] = useState('');
-  const [qtdVazios, setQtdVazios] = useState('');
   const [observacao, setObservacao] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -52,15 +51,14 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
 
   const handleSalvar = async () => {
     const numCheios = parseInt(qtdCheios, 10) || 0;
-    const numVazios = parseInt(qtdVazios, 10) || 0;
 
     if (!selectedProdutoId) {
       Alert.alert('Atenção', 'Selecione o produto que chegou da fábrica.');
       return;
     }
 
-    if (numCheios <= 0 && numVazios <= 0) {
-      Alert.alert('Atenção', 'Digite a quantidade de garrafões cheios recebidos ou vazios devolvidos.');
+    if (numCheios <= 0) {
+      Alert.alert('Atenção', 'Digite a quantidade de garrafões cheios recebidos.');
       return;
     }
 
@@ -71,13 +69,12 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
       EstoqueService.registrarCargaFabrica({
         produtoId: selectedProdutoId,
         qtdCheiosRecebidos: numCheios,
-        qtdVaziosDevolvidos: numVazios,
+        qtdVaziosDevolvidos: 0,
         observacao: observacao.trim() || undefined,
       });
 
       await HapticService.success();
       setQtdCheios('');
-      setQtdVazios('');
       setObservacao('');
       onSuccess();
     } catch (e: any) {
@@ -98,7 +95,7 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
               <View>
                 <Text style={[styles.title, { color: colors.text }]}>Chegada de Carga (Fábrica)</Text>
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                  Recebimento de cheios e devolução de vazios
+                  Recebimento de galões cheios para o estoque
                 </Text>
               </View>
             </View>
@@ -151,7 +148,7 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
                     🟢 CHEIOS RECEBIDOS (+ Estoque)
                   </Text>
                   <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>
-                    Garrafões cheios que desceram do caminhão
+                    Garrafões cheios descarregados do caminhão
                   </Text>
                 </View>
                 <TextInput
@@ -168,35 +165,6 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
                   placeholderTextColor={colors.textMuted}
                   value={qtdCheios}
                   onChangeText={setQtdCheios}
-                />
-              </View>
-            </View>
-
-            {/* 3. Garrafões Vazios Devolvidos */}
-            <View style={[styles.cardInput, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <View style={{ flex: 1, paddingRight: 10 }}>
-                  <Text style={[styles.inputHeading, { color: colors.primary }]}>
-                    🔵 VAZIOS ENVIADOS (- Pátio)
-                  </Text>
-                  <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>
-                    Vazios entregues à fábrica para recarga
-                  </Text>
-                </View>
-                <TextInput
-                  style={[
-                    styles.numericInput,
-                    {
-                      backgroundColor: colors.card,
-                      color: colors.text,
-                      borderColor: qtdVazios ? colors.primary : colors.border,
-                    },
-                  ]}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor={colors.textMuted}
-                  value={qtdVazios}
-                  onChangeText={setQtdVazios}
                 />
               </View>
             </View>

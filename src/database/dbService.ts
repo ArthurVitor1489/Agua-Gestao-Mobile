@@ -501,7 +501,10 @@ export const EstoqueService = {
     // 3. Registrar auditoria
     const prod = db.getFirstSync<any>('SELECT nome FROM produtos WHERE id = ?', [params.produtoId]);
     const prodNome = prod?.nome || 'Galão de Água 20L';
-    const motivoTexto = `Carga de Fábrica: +${params.qtdCheiosRecebidos} Cheios, -${params.qtdVaziosDevolvidos} Vazios devolvidos${
+    const vaziosInfo = params.qtdVaziosDevolvidos && params.qtdVaziosDevolvidos > 0
+      ? `, -${params.qtdVaziosDevolvidos} Vazios devolvidos`
+      : '';
+    const motivoTexto = `Carga de Fábrica: +${params.qtdCheiosRecebidos} Cheios recebidos${vaziosInfo}${
       params.observacao ? ` (${params.observacao})` : ''
     }`;
 

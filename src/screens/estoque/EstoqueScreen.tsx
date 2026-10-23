@@ -287,7 +287,7 @@ export const EstoqueScreen: React.FC = () => {
             <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[styles.infoBoxTitle, { color: colors.text }]}>💡 Como funciona o ciclo simples:</Text>
               <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4, lineHeight: 18 }}>
-                • <Text style={{ fontWeight: 'bold' }}>Chegada da fábrica:</Text> receba os cheios do caminhão e entregue os vazios em troca.{'\n'}
+                • <Text style={{ fontWeight: 'bold' }}>Chegada da fábrica:</Text> digite a quantidade de galões cheios recebidos para somar ao estoque.{'\n'}
                 • <Text style={{ fontWeight: 'bold' }}>Venda em rota / balcão:</Text> ao vender água 20L, o app debita 1 cheio e credita 1 vazio automaticamente.{'\n'}
                 • <Text style={{ fontWeight: 'bold' }}>Avarias e quebras:</Text> se quebrar no transporte ou no CD, lance na opção "Lançar Avaria" para manter seu estoque sempre exato.
               </Text>
