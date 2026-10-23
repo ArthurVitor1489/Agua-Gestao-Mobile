@@ -10,8 +10,8 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Share,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
@@ -275,16 +275,15 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
     try {
       await HapticService.light();
       const sql = SupabaseClientService.getSupabaseSqlSchema();
-      await Clipboard.setStringAsync(sql);
+      await Share.share({
+        message: sql,
+        title: 'Script SQL Supabase - Água Gestão Pro',
+      });
       await HapticService.success();
       setCopiadoSql(true);
       setTimeout(() => setCopiadoSql(false), 4000);
-      Alert.alert(
-        'Script SQL Copiado!',
-        'O código SQL foi copiado para sua área de transferência. Abra o painel do seu projeto no Supabase, entre no SQL Editor, cole o script e clique em RUN.'
-      );
     } catch (e) {
-      Alert.alert('Erro', 'Não foi possível copiar o script para a área de transferência.');
+      Alert.alert('Erro', 'Não foi possível compartilhar o script SQL.');
     }
   };
 
