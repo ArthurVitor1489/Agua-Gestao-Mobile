@@ -1,0 +1,190 @@
+import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
+
+let dbInstance: SQLite.SQLiteDatabase | null = null;
+
+export const getDatabase = (): SQLite.SQLiteDatabase => {
+  if (!dbInstance) {
+    dbInstance = SQLite.openDatabaseSync('aguagestao_standalone.db');
+    initDatabase(dbInstance);
+  }
+  return dbInstance;
+};
+
+export const initDatabase = (db: SQLite.SQLiteDatabase) => {
+  // 1. Tabela de Configuração da Distribuidora e Assinatura
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS configuracao (
+      id TEXT PRIMARY KEY,
+      nomeDistribuidora TEXT NOT NULL,
+      telefone TEXT,
+      whatsapp TEXT,
+      chavePix TEXT,
+      cidade TEXT,
+      estado TEXT,
+      trialStartDate TEXT NOT NULL,
+      isSubscribed INTEGER DEFAULT 0,
+      plano TEXT DEFAULT 'TRIAL_14_DIAS',
+      createdAt TEXT NOT NULL
+    );
+  `);
+
+  // 2. Tabela de Produtos
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS produtos (
+      id TEXT PRIMARY KEY,
+      nome TEXT NOT NULL,
+      categoria TEXT NOT NULL,
+      precoVenda REAL NOT NULL,
+      custo REAL DEFAULT 0,
+      estoqueAtual INTEGER DEFAULT 0,
+      unidade TEXT DEFAULT 'UN',
+      ativo INTEGER DEFAULT 1,
+      createdAt TEXT NOT NULL
+    );
+  `);
+
+  // 3. Tabela de Estoque de Garrafões e Vasilhames (Regra ANP 3 Anos)
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS estoque_garrafoes (
+      id TEXT PRIMARY KEY,
+      anoFabricacao INTEGER NOT NULL,
+      anoValidade INTEGER NOT NULL,
+      quantidade INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      observacoes TEXT,
+      createdAt TEXT NOT NULL
+    );
+  `);
+
+  // 4. Tabela de Clientes e Recompra
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS clientes (
+      id TEXT PRIMARY KEY,
+      nome TEXT NOT NULL,
+      cpfCnpj TEXT,
+      telefone TEXT,
+      whatsapp TEXT,
+      logradouro TEXT,
+      numero TEXT,
+      bairro TEXT,
+      cidade TEXT,
+      estado TEXT,
+      pontoReferencia TEXT,
+      latitude REAL,
+      longitude REAL,
+      ativo INTEGER DEFAULT 1,
+      precosEspeciaisJson TEXT,
+      createdAt TEXT NOT NULL
+    );
+  `);
+
+  // 5. Tabela de Pedidos
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS pedidos (
+      id TEXT PRIMARY KEY,
+      numero INTEGER NOT NULL,
+      clienteId TEXT,
+      clienteNome TEXT NOT NULL,
+      clienteTelefone TEXT,
+      clienteEndereco TEXT,
+      data TEXT NOT NULL,
+      valorTotal REAL NOT NULL,
+      desconto REAL DEFAULT 0,
+      acrescimo REAL DEFAULT 0,
+      status TEXT NOT NULL,
+      formaPagamento TEXT NOT NULL,
+      trocoPara REAL,
+      observacoes TEXT,
+      itensJson TEXT NOT NULL,
+      createdAt TEXT NOT NULL
+    );
+  `);
+
+  // 6. Tabela de Fiados (Caderneta Digital)
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS fiados (
+      id TEXT PRIMARY KEY,
+      clienteId TEXT NOT NULL,
+      clienteNome TEXT NOT NULL,
+      pedidoId TEXT,
+      pedidoNumero INTEGER,
+      valorOriginal REAL NOT NULL,
+      valorPago REAL DEFAULT 0,
+      saldo REAL NOT NULL,
+      situacao TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
+  `);
+
+  // 7. Tabela de Despesas Operacionais
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS despesas (
+      id TEXT PRIMARY KEY,
+      descricao TEXT NOT NULL,
+      categoria TEXT NOT NULL,
+      valor REAL NOT NULL,
+      data TEXT NOT NULL,
+      formaPagamento TEXT NOT NULL,
+      createdAt TEXT NOT NULL
+    );
+  `);
+
+  // 8. Tabela de Movimentações de Estoque (Auditoria)
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS movimentacoes_estoque (
+      id TEXT PRIMARY KEY,
+      produtoId TEXT,
+      produtoNome TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      quantidade INTEGER NOT NULL,
+      motivo TEXT,
+      data TEXT NOT NULL
+    );
+  `);
+
+  // Seed Inicial Automático
+  seedInitialData(db);
+};
+
+const seedInitialData = (db: SQLite.SQLiteDatabase) => {
+  // Verificar se já tem produtos
+  const prodCount = db.getFirstSync<{ count: number }>('SELECT count(*) as count FROM produtos');
+  if (!prodCount || prodCount.count === 0) {
+    const now = new Date().toISOString();
+    const anoAtual = new Date().getFullYear();
+
+    // Produtos Padrão
+    const produtos = [
+      { id: 'prod-galao-20l', nome: 'Galão de Água Mineral 20L', categoria: 'AGUA_20L', preco: 14.0, custo: 6.0, estoque: 50 },
+      { id: 'prod-galao-10l', nome: 'Galão de Água Mineral 10L', categoria: 'AGUA_10L', preco: 10.0, custo: 4.5, estoque: 25 },
+      { id: 'prod-gas-p13', nome: 'Botijão de Gás GLP P13', categoria: 'GAS_P13', preco: 115.0, custo: 85.0, estoque: 30 },
+      { id: 'prod-vasilhame-20l', nome: 'Vasilhame Galão 20L (Vazio)', categoria: 'GARRAFAO_NOVO', preco: 35.0, custo: 25.0, estoque: 30 },
+      { id: 'prod-vasilhame-p13', nome: 'Vasilhame Botijão P13 (Vazio)', categoria: 'GAS_P13', preco: 180.0, custo: 140.0, estoque: 15 },
+    ];
+
+    for (const p of produtos) {
+      db.runSync(
+        'INSERT INTO produtos (id, nome, categoria, precoVenda, custo, estoqueAtual, unidade, ativo, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [p.id, p.nome, p.categoria, p.preco, p.custo, p.estoque, 'UN', 1, now]
+      );
+    }
+
+    // Lotes Iniciais ANP (Validade de 3 anos)
+    const garrafoes = [
+      { id: 'gar-01', anoFab: anoAtual, anoVal: anoAtual + 3, qtd: 50, status: 'CHEIO' },
+      { id: 'gar-02', anoFab: anoAtual, anoVal: anoAtual + 3, qtd: 30, status: 'VAZIO' },
+      { id: 'gar-03', anoFab: anoAtual - 1, anoVal: anoAtual + 2, qtd: 20, status: 'CHEIO' },
+      { id: 'gar-04', anoFab: anoAtual - 1, anoVal: anoAtual + 2, qtd: 10, status: 'VAZIO' },
+      { id: 'gar-05', anoFab: anoAtual - 1, anoVal: anoAtual + 2, qtd: 1, status: 'DANIFICADO' },
+    ];
+
+    for (const g of garrafoes) {
+      db.runSync(
+        'INSERT INTO estoque_garrafoes (id, anoFabricacao, anoValidade, quantidade, status, observacoes, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [g.id, g.anoFab, g.anoVal, g.qtd, g.status, 'Lote inicial do sistema', now]
+      );
+    }
+  }
+};
