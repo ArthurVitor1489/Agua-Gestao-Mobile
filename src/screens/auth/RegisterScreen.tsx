@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { AuthApi } from '../../api/authApi';
 import { HapticService } from '../../services/hapticService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -25,9 +24,9 @@ import {
   MapPin,
   ArrowRight,
   Droplets,
-  Flame,
   Sparkles,
-  CheckCircle2,
+  Eye,
+  EyeOff,
 } from 'lucide-react-native';
 
 interface RegisterScreenProps {
@@ -40,18 +39,22 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
   const insets = useSafeAreaInsets();
 
   const [nome, setNome] = useState('');
-  const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
   const [nomeDistribuidora, setNomeDistribuidora] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [cidade, setCidade] = useState('');
-  const [estado, setEstado] = useState('SP');
+  const [estado, setEstado] = useState('PB');
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [mostrarSenha, setMostrarSenha] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const handleRegister = async () => {
     if (!nome.trim() || !email.trim() || !senha.trim() || !nomeDistribuidora.trim()) {
       await HapticService.warning();
-      Alert.alert('Campos Obrigatórios', 'Por favor, informe seu Nome, E-mail, Senha e o Nome da sua Distribuidora.');
+      Alert.alert(
+        'Campos Obrigatórios',
+        'Por favor, informe seu Nome, Nome da Distribuidora, E-mail e Senha.'
+      );
       return;
     }
 
@@ -77,16 +80,15 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
 
       if (res.success) {
         Alert.alert(
-          'Bem-vindo ao Água Gestão! 🎉',
-          'Sua distribuidora foi criada com sucesso com 14 dias de teste grátis e catálogo pré-configurado!'
+          'Conta Criada com Sucesso! 🎉',
+          'Sua distribuidora foi configurada e seu período de teste de 14 dias grátis já está ativo!'
         );
       } else {
         Alert.alert('Erro no Cadastro', res.error || 'Falha ao criar conta.');
       }
     } catch (err: any) {
       await HapticService.error();
-      const msg = err.response?.data?.error || err.message || 'Falha ao criar conta.';
-      Alert.alert('Erro no Cadastro', msg);
+      Alert.alert('Erro no Cadastro', err.message || 'Falha ao criar conta.');
     } finally {
       setSubmitting(false);
     }
@@ -99,46 +101,44 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
     >
       <ScrollView
         contentContainerStyle={[
-          styles.scrollContent,
+          styles.scrollContainer,
           {
-            paddingTop: Math.max(insets.top, 24) + 10,
-            paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 28 : 16) + 16,
+            paddingTop: Math.max(insets.top, 24) + 16,
+            paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 32 : 24) + 20,
           },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Cabeçalho Marca */}
+        {/* Marca & Logo */}
         <View style={styles.brandBox}>
           <View style={[styles.logoCircle, { backgroundColor: colors.primary }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Droplets size={32} color="#fff" />
-              <Flame size={20} color="#f97316" style={{ marginLeft: -6, marginTop: 10 }} />
-            </View>
+            <Droplets size={36} color="#fff" />
           </View>
-          <Text style={[styles.brandTitle, { color: colors.text }]}>Água Gestão</Text>
+          <Text style={[styles.brandTitle, { color: colors.text }]}>Água Gestão Pro</Text>
+          <Text style={[styles.brandSubtitle, { color: colors.textMuted }]}>
+            Cadastre sua distribuidora e comece em minutos
+          </Text>
+
           <View style={[styles.trialBadge, { backgroundColor: '#dcfce7', borderColor: '#86efac' }]}>
-            <Sparkles size={13} color="#15803d" />
+            <Sparkles size={12} color="#15803d" />
             <Text style={{ color: '#15803d', fontSize: 11, fontWeight: '800' }}>
-              14 DIAS GRÁTIS • SEM CARTÃO
+              14 DIAS GRÁTIS • EDICÃO GOOGLE PLAY
             </Text>
           </View>
         </View>
 
-        {/* Card de Cadastro */}
+        {/* Card do Formulário */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.cardHeader, { color: colors.text }]}>Cadastre sua Distribuidora</Text>
-          <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 16 }}>
-            Crie sua conta para gerenciar água, gás, estoques ANP e clientes.
-          </Text>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Criar Nova Conta</Text>
 
-          {/* Nome do Responsável */}
+          {/* Nome Completo */}
           <Text style={[styles.label, { color: colors.text }]}>Seu Nome Completo *</Text>
-          <View style={[styles.inputBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <UserIcon size={18} color={colors.textMuted} />
+          <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <UserIcon size={18} color={colors.textMuted} style={styles.inputIcon} />
             <TextInput
               style={[styles.input, { color: colors.text }]}
-              placeholder="Ex: Carlos Silva"
+              placeholder="Ex: Arthur Vitor"
               placeholderTextColor={colors.textMuted}
               value={nome}
               onChangeText={setNome}
@@ -146,74 +146,57 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
           </View>
 
           {/* Nome da Distribuidora */}
-          <Text style={[styles.label, { color: colors.text, marginTop: 12 }]}>Nome da Distribuidora *</Text>
-          <View style={[styles.inputBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Building2 size={18} color={colors.textMuted} />
+          <Text style={[styles.label, { color: colors.text, marginTop: 12 }]}>Nome da sua Distribuidora *</Text>
+          <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Building2 size={18} color={colors.textMuted} style={styles.inputIcon} />
             <TextInput
               style={[styles.input, { color: colors.text }]}
-              placeholder="Ex: Distribuidora Água & Gás Modelo"
+              placeholder="Ex: Distribuidora Água Belle"
               placeholderTextColor={colors.textMuted}
               value={nomeDistribuidora}
               onChangeText={setNomeDistribuidora}
             />
           </View>
 
-          {/* E-mail */}
-          <Text style={[styles.label, { color: colors.text, marginTop: 12 }]}>E-mail de Acesso *</Text>
-          <View style={[styles.inputBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Mail size={18} color={colors.textMuted} />
+          {/* WhatsApp */}
+          <Text style={[styles.label, { color: colors.text, marginTop: 12 }]}>WhatsApp / Celular</Text>
+          <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Phone size={18} color={colors.textMuted} style={styles.inputIcon} />
             <TextInput
               style={[styles.input, { color: colors.text }]}
-              placeholder="seu@email.com"
+              placeholder="(83) 99999-9999"
               placeholderTextColor={colors.textMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
+              keyboardType="phone-pad"
+              value={whatsapp}
+              onChangeText={setWhatsapp}
             />
           </View>
 
-          {/* Senha */}
-          <Text style={[styles.label, { color: colors.text, marginTop: 12 }]}>Criar Senha (mínimo 6 dígitos) *</Text>
-          <View style={[styles.inputBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Lock size={18} color={colors.textMuted} />
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="••••••••"
-              placeholderTextColor={colors.textMuted}
-              secureTextEntry
-              value={senha}
-              onChangeText={setSenha}
-            />
-          </View>
-
-          {/* WhatsApp e Cidade */}
+          {/* Cidade e UF */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.label, { color: colors.text }]}>WhatsApp Comercial</Text>
-              <View style={[styles.inputBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Phone size={16} color={colors.textMuted} />
+            <View style={{ flex: 2 }}>
+              <Text style={[styles.label, { color: colors.text }]}>Cidade</Text>
+              <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <MapPin size={18} color={colors.textMuted} style={styles.inputIcon} />
                 <TextInput
                   style={[styles.input, { color: colors.text }]}
-                  placeholder="(11) 99999-8888"
+                  placeholder="Sua cidade"
                   placeholderTextColor={colors.textMuted}
-                  keyboardType="phone-pad"
-                  value={whatsapp}
-                  onChangeText={setWhatsapp}
+                  value={cidade}
+                  onChangeText={setCidade}
                 />
               </View>
             </View>
 
-            <View style={{ width: 90 }}>
+            <View style={{ flex: 1 }}>
               <Text style={[styles.label, { color: colors.text }]}>UF</Text>
-              <View style={[styles.inputBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <MapPin size={16} color={colors.textMuted} />
+              <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  placeholder="SP"
-                  placeholderTextColor={colors.textMuted}
-                  autoCapitalize="characters"
+                  style={[styles.input, { color: colors.text, textAlign: 'center' }]}
+                  placeholder="PB"
                   maxLength={2}
+                  autoCapitalize="characters"
+                  placeholderTextColor={colors.textMuted}
                   value={estado}
                   onChangeText={setEstado}
                 />
@@ -221,23 +204,44 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
             </View>
           </View>
 
-          {/* Vantagens Inclusas */}
-          <View style={styles.featuresIncluded}>
-            <View style={styles.featureLine}>
-              <CheckCircle2 size={14} color="#16a34a" />
-              <Text style={{ color: colors.textMuted, fontSize: 11 }}>
-                Produtos padrão inclusos (Galão 20L, Botijão P13)
-              </Text>
-            </View>
-            <View style={styles.featureLine}>
-              <CheckCircle2 size={14} color="#16a34a" />
-              <Text style={{ color: colors.textMuted, fontSize: 11 }}>
-                14 dias de teste grátis com tudo liberado
-              </Text>
-            </View>
+          {/* E-mail */}
+          <Text style={[styles.label, { color: colors.text, marginTop: 12 }]}>E-mail de Acesso *</Text>
+          <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Mail size={18} color={colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.input, { color: colors.text }]}
+              placeholder="seu@email.com"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={email}
+              onChangeText={setEmail}
+            />
           </View>
 
-          {/* Botão Criar Conta */}
+          {/* Senha */}
+          <Text style={[styles.label, { color: colors.text, marginTop: 12 }]}>Senha (mínimo 6 dígitos) *</Text>
+          <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Lock size={18} color={colors.textMuted} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.input, { color: colors.text }]}
+              placeholder="Crie uma senha segura"
+              placeholderTextColor={colors.textMuted}
+              secureTextEntry={!mostrarSenha}
+              value={senha}
+              onChangeText={setSenha}
+            />
+            <TouchableOpacity onPress={() => setMostrarSenha(!mostrarSenha)} style={{ padding: 6 }}>
+              {mostrarSenha ? (
+                <EyeOff size={18} color={colors.textMuted} />
+              ) : (
+                <Eye size={18} color={colors.textMuted} />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Botão Cadastrar */}
           <TouchableOpacity
             style={[styles.registerBtn, { backgroundColor: colors.primary }]}
             onPress={handleRegister}
@@ -248,34 +252,34 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
               <ActivityIndicator color="#fff" size="small" />
             ) : (
               <>
-                <Text style={styles.registerBtnText}>Criar Minha Conta (14 Dias Grátis)</Text>
+                <Text style={styles.registerBtnText}>CRIAR CONTA & INICIAR TESTE</Text>
                 <ArrowRight size={18} color="#fff" />
               </>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* Alternar para Login */}
-        <TouchableOpacity style={styles.loginLinkBox} onPress={onNavigateToLogin} activeOpacity={0.7}>
-          <Text style={{ color: colors.textMuted, fontSize: 13 }}>
-            Já possui cadastro?{' '}
-            <Text style={{ color: colors.primary, fontWeight: '800' }}>Fazer Login</Text>
-          </Text>
-        </TouchableOpacity>
+        {/* Rodapé: Link para Login */}
+        <View style={styles.footerRow}>
+          <Text style={{ color: colors.textMuted, fontSize: 13 }}>Já possui uma conta?</Text>
+          <TouchableOpacity onPress={onNavigateToLogin}>
+            <Text style={[styles.loginLink, { color: colors.primary }]}>Fazer Login</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  scrollContent: {
+  scrollContainer: {
     paddingHorizontal: 20,
-    flexGrow: 1,
     justifyContent: 'center',
+    minHeight: '100%',
   },
   brandBox: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   logoCircle: {
     width: 68,
@@ -283,71 +287,58 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
     elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
   },
   brandTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '900',
-    letterSpacing: -0.5,
+    marginTop: 12,
+  },
+  brandSubtitle: {
+    fontSize: 13,
+    marginTop: 4,
+    textAlign: 'center',
   },
   trialBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
     borderWidth: 1,
-    marginTop: 8,
+    marginTop: 10,
   },
   card: {
     borderRadius: 20,
-    borderWidth: 1,
     padding: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
+    borderWidth: 1,
+    elevation: 4,
   },
-  cardHeader: {
+  cardTitle: {
     fontSize: 18,
     fontWeight: '800',
+    marginBottom: 14,
   },
   label: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
     marginBottom: 6,
   },
-  inputBox: {
+  inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
     borderRadius: 12,
+    borderWidth: 1,
     paddingHorizontal: 12,
     height: 48,
-    gap: 8,
+  },
+  inputIcon: {
+    marginRight: 8,
   },
   input: {
     flex: 1,
     fontSize: 14,
-  },
-  featuresIncluded: {
-    marginTop: 16,
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.02)',
-    padding: 10,
-    borderRadius: 10,
-  },
-  featureLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   registerBtn: {
     flexDirection: 'row',
@@ -355,17 +346,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: 14,
+    marginTop: 20,
     gap: 8,
-    marginTop: 18,
+    elevation: 3,
   },
   registerBtnText: {
     color: '#fff',
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
-  loginLinkBox: {
+  footerRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 18,
-    paddingVertical: 8,
+    gap: 6,
+    marginTop: 20,
+  },
+  loginLink: {
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

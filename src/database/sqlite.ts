@@ -29,6 +29,21 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
     );
   `);
 
+  // Tabela de Usuários (Autenticação Local)
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS usuarios (
+      id TEXT PRIMARY KEY,
+      nome TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      senha TEXT NOT NULL,
+      role TEXT DEFAULT 'ADMIN',
+      empresaId TEXT,
+      empresaNome TEXT,
+      ativo INTEGER DEFAULT 1,
+      createdAt TEXT NOT NULL
+    );
+  `);
+
   // 2. Tabela de Produtos
   db.execSync(`
     CREATE TABLE IF NOT EXISTS produtos (

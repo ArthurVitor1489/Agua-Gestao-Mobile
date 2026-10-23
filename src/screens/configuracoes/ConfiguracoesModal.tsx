@@ -12,6 +12,7 @@ import {
   FlatList,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { ConfigService, ProdutosService } from '../../database/dbService';
 import { Produto } from '../../database/models';
@@ -31,6 +32,7 @@ import {
   Phone,
   MapPin,
   Check,
+  LogOut,
 } from 'lucide-react-native';
 
 interface ConfiguracoesModalProps {
@@ -45,6 +47,7 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
   onConfigUpdated,
 }) => {
   const { colors } = useTheme();
+  const { logout } = useAuth();
   const { isTrialActive, daysRemaining, isSubscribed, openPaywall } = useSubscription();
 
   const [abaAtiva, setAbaAtiva] = useState<'produtos' | 'distribuidora' | 'licenca'>('produtos');
@@ -352,6 +355,29 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
                 )}
               </TouchableOpacity>
 
+              {/* Botão Sair da Conta (Logout) */}
+              <TouchableOpacity
+                style={[styles.logoutBtn, { borderColor: colors.danger, backgroundColor: '#fee2e2' }]}
+                onPress={() => {
+                  Alert.alert('Sair da Conta', 'Deseja realmente sair da sua conta?', [
+                    { text: 'Cancelar', style: 'cancel' },
+                    {
+                      text: 'Sair',
+                      style: 'destructive',
+                      onPress: () => {
+                        onClose();
+                        logout();
+                      },
+                    },
+                  ]);
+                }}
+              >
+                <LogOut size={16} color={colors.danger} />
+                <Text style={{ color: colors.danger, fontWeight: '800', fontSize: 13 }}>
+                  Sair da Conta (Fazer Logout)
+                </Text>
+              </TouchableOpacity>
+
               <View style={{ height: 40 }} />
             </ScrollView>
           )}
@@ -537,6 +563,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '800',
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 8,
+    marginTop: 12,
   },
   licenseBox: {
     padding: 20,

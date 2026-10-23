@@ -1,16 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { View, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Platform, ActivityIndicator } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
+import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useSubscription } from '../context/SubscriptionContext';
-import { ConfigService } from '../database/dbService';
 import { Header } from '../components/common/Header';
 import { HapticService } from '../services/hapticService';
 
-// Telas
-import { OnboardingScreen } from '../screens/onboarding/OnboardingScreen';
+// Telas de Autenticação & Paywall
+import { LoginScreen } from '../screens/auth/LoginScreen';
+import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { PaywallScreen } from '../screens/subscription/PaywallScreen';
+
+// Telas Principais do App
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { PedidosListScreen } from '../screens/pedidos/PedidosListScreen';
 import { EstoqueScreen } from '../screens/estoque/EstoqueScreen';
@@ -32,10 +35,11 @@ const Tab = createBottomTabNavigator();
 
 export const AppNavigator: React.FC = () => {
   const { colors } = useTheme();
-  const { hasAccess, showPaywallModal, closePaywall, refreshSubscription } = useSubscription();
+  const { user, isLoading } = useAuth();
+  const { hasAccess, showPaywallModal, closePaywall } = useSubscription();
   const insets = useSafeAreaInsets();
 
-  const [hasConfig, setHasConfig] = useState<boolean>(() => !!ConfigService.getConfig());
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   const safeBottomPadding =
     insets.bottom > 0
@@ -45,16 +49,21 @@ export const AppNavigator: React.FC = () => {
       : 10;
   const tabBarHeight = 58 + safeBottomPadding;
 
-  // Primeiro Acesso: Exibe Onboarding para configurar Distribuidora
-  if (!hasConfig) {
+  // Carregando sessão inicial
+  if (isLoading) {
     return (
-      <OnboardingScreen
-        onComplete={() => {
-          setHasConfig(true);
-          refreshSubscription();
-        }}
-      />
+      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
     );
+  }
+
+  // Se não estiver logado, exibe Cadastro ou Login
+  if (!user) {
+    if (authMode === 'register') {
+      return <RegisterScreen onNavigateToLogin={() => setAuthMode('login')} />;
+    }
+    return <LoginScreen onNavigateToRegister={() => setAuthMode('register')} />;
   }
 
   // Se o período de teste de 14 dias expirou e não possui assinatura

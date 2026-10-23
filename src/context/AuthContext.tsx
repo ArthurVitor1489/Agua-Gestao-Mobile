@@ -1,10 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Empresa } from '../database/models';
-import { AuthApi, RegisterPayload } from '../api/authApi';
+import { LocalAuthService, ConfigService } from '../database/dbService';
 import { LocalStorage } from '../database/localStorage';
 import { AuthService } from '../services/authService';
-import { setOnUnauthorizedCallback } from '../api/client';
 import { HapticService } from '../services/hapticService';
+
+export interface RegisterPayload {
+  nome: string;
+  email: string;
+  senha: string;
+  nomeDistribuidora: string;
+  whatsapp?: string;
+  cidade?: string;
+  estado?: string;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -31,11 +40,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
 
   useEffect(() => {
-    // Configurar callback para 401 automático
-    setOnUnauthorizedCallback(() => {
-      logout();
-    });
-
     initSession();
   }, []);
 
@@ -44,15 +48,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       const storedToken = await LocalStorage.getToken();
       const storedUser = await LocalStorage.getUser();
-      const storedActiveEmpresa = await LocalStorage.getActiveEmpresaId();
 
       if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(storedUser);
-        setActiveEmpresaIdState(storedActiveEmpresa || storedUser.empresaId || null);
-
-        if (storedUser.role === 'SUPER_ADMIN') {
-          loadEmpresas();
+        // Validar se o usuário ainda existe no banco
+        const userDb = LocalAuthService.getUsuarioById(storedUser.id);
+        if (userDb) {
+          setToken(storedToken);
+          setUser(userDb);
+          setActiveEmpresaIdState('local');
+        } else {
+          await LocalStorage.clearSession();
         }
       }
     } catch (e) {
@@ -62,35 +67,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const loadEmpresas = async () => {
-    try {
-      const list = await AuthApi.getEmpresas();
-      setEmpresas(list);
-      await LocalStorage.setEmpresasList(list);
-    } catch (e) {
-      const cached = await LocalStorage.getEmpresasList();
-      setEmpresas(cached);
-    }
-  };
-
   const register = async (payload: RegisterPayload): Promise<{ success: boolean; error?: string }> => {
     try {
       setIsLoading(true);
-      const res = await AuthApi.register(payload);
-      if (res.sucesso && res.user) {
-        setUser(res.user);
-        if (res.token) setToken(res.token);
-        const empId = res.user.empresaId || null;
-        setActiveEmpresaIdState(empId);
-        await HapticService.success();
-        return { success: true };
-      }
-      await HapticService.error();
-      return { success: false, error: res.error || 'Falha ao registrar distribuidora.' };
+      const novoUser = LocalAuthService.cadastrar({
+        nome: payload.nome,
+        email: payload.email,
+        senha: payload.senha,
+        nomeDistribuidora: payload.nomeDistribuidora,
+        whatsapp: payload.whatsapp,
+        cidade: payload.cidade,
+        estado: payload.estado,
+      });
+
+      setUser(novoUser);
+      setToken('local-session-token');
+      await LocalStorage.setUser(novoUser);
+      await LocalStorage.setToken('local-session-token');
+      await HapticService.success();
+      return { success: true };
     } catch (err: any) {
       await HapticService.error();
-      const msg = err.response?.data?.error || err.message || 'Erro ao realizar cadastro.';
-      return { success: false, error: msg };
+      return { success: false, error: err.message || 'Falha ao cadastrar distribuidora.' };
     } finally {
       setIsLoading(false);
     }
@@ -99,84 +97,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     try {
       setIsLoading(true);
-      const res = await AuthApi.login(email, pass);
-      if (res.sucesso && res.user) {
-        setUser(res.user);
-        if (res.token) setToken(res.token);
-        const empId = res.user.empresaId || null;
-        setActiveEmpresaIdState(empId);
-
-        if (res.user.role === 'SUPER_ADMIN') {
-          loadEmpresas();
-        }
-
+      const userFound = LocalAuthService.login(email, pass);
+      if (userFound) {
+        setUser(userFound);
+        setToken('local-session-token');
+        await LocalStorage.setUser(userFound);
+        await LocalStorage.setToken('local-session-token');
         await HapticService.success();
         return { success: true };
       }
       await HapticService.error();
-      return { success: false, error: res.error || 'Credenciais inválidas' };
+      return { success: false, error: 'E-mail ou senha incorretos.' };
     } catch (err: any) {
       await HapticService.error();
-      const msg = err.response?.data?.error || err.message || 'Falha ao autenticar';
-      return { success: false, error: msg };
+      return { success: false, error: err.message || 'Falha ao autenticar.' };
     } finally {
       setIsLoading(false);
     }
   };
 
   const loginWithBiometrics = async (): Promise<boolean> => {
-    const supported = await AuthService.isBiometricsSupported();
-    if (!supported) return false;
+    try {
+      const supported = await AuthService.isBiometricsSupported();
+      if (!supported) return false;
 
-    const storedToken = await LocalStorage.getToken();
-    const storedUser = await LocalStorage.getUser();
+      const storedUser = await LocalStorage.getUser();
+      if (!storedUser) return false;
 
-    if (!storedToken || !storedUser) return false;
-
-    const authenticated = await AuthService.authenticateWithBiometrics();
-    if (authenticated) {
-      setUser(storedUser);
-      setToken(storedToken);
-      const activeEmp = await LocalStorage.getActiveEmpresaId();
-      setActiveEmpresaIdState(activeEmp || storedUser.empresaId || null);
-      if (storedUser.role === 'SUPER_ADMIN') {
-        loadEmpresas();
+      const authenticated = await AuthService.authenticateWithBiometrics();
+      if (authenticated) {
+        const userDb = LocalAuthService.getUsuarioById(storedUser.id) || storedUser;
+        setUser(userDb);
+        setToken('local-session-token');
+        await HapticService.success();
+        return true;
       }
-      await HapticService.success();
-      return true;
+      return false;
+    } catch {
+      return false;
     }
-    return false;
   };
 
   const logout = async () => {
     try {
-      await AuthApi.logout();
-    } catch {}
-    setUser(null);
-    setToken(null);
-    setActiveEmpresaIdState(null);
-    setEmpresas([]);
-    await HapticService.medium();
-  };
-
-  const switchEmpresa = async (empresaId: string) => {
-    try {
-      await AuthApi.switchEmpresa(empresaId);
-      setActiveEmpresaIdState(empresaId);
-      await HapticService.light();
+      await LocalStorage.clearSession();
+      setUser(null);
+      setToken(null);
+      await HapticService.medium();
     } catch (e) {
-      console.warn('Erro ao alternar empresa:', e);
-      setActiveEmpresaIdState(empresaId);
-      await LocalStorage.setActiveEmpresaId(empresaId);
+      console.warn('Erro ao deslogar:', e);
     }
   };
 
+  const switchEmpresa = async (empresaId: string) => {
+    setActiveEmpresaIdState(empresaId);
+    await HapticService.light();
+  };
+
   const refreshUserData = async () => {
-    try {
-      const me = await AuthApi.getMe();
-      setUser(me);
-      await LocalStorage.setUser(me);
-    } catch {}
+    if (user?.id) {
+      const userDb = LocalAuthService.getUsuarioById(user.id);
+      if (userDb) setUser(userDb);
+    }
   };
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';

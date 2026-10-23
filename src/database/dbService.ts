@@ -1,5 +1,6 @@
 import { getDatabase } from './sqlite';
 import {
+  User,
   Cliente,
   Produto,
   EstoqueGarrafao,
@@ -30,6 +31,121 @@ export interface AppConfig {
   plano: string;
   createdAt: string;
 }
+
+// ----------------------------------------------------
+// 0. SERVIÇO DE AUTENTICAÇÃO LOCAL (CADASTRO E LOGIN)
+// ----------------------------------------------------
+export const LocalAuthService = {
+  cadastrar(payload: {
+    nome: string;
+    email: string;
+    senha: string;
+    nomeDistribuidora: string;
+    whatsapp?: string;
+    cidade?: string;
+    estado?: string;
+  }): User {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const id = generateId();
+
+    // 1. Salvar configuração da distribuidora (ativa os 14 dias de teste)
+    ConfigService.saveConfig({
+      nomeDistribuidora: payload.nomeDistribuidora,
+      whatsapp: payload.whatsapp || '',
+      cidade: payload.cidade || '',
+      estado: payload.estado || '',
+    });
+
+    // 2. Inserir usuário no banco
+    db.runSync(
+      `INSERT INTO usuarios (id, nome, email, senha, role, empresaId, empresaNome, ativo, createdAt)
+       VALUES (?, ?, ?, ?, 'ADMIN', 'local', ?, 1, ?)`,
+      [id, payload.nome, payload.email.toLowerCase().trim(), payload.senha, payload.nomeDistribuidora, now]
+    );
+
+    return {
+      id,
+      empresaId: 'local',
+      nome: payload.nome,
+      email: payload.email.toLowerCase().trim(),
+      role: 'EMPRESA_ADMIN',
+      ativo: true,
+      empresa: {
+        id: 'local',
+        nome: payload.nomeDistribuidora,
+        cidade: payload.cidade,
+        estado: payload.estado,
+        ativo: true,
+        createdAt: now,
+        updatedAt: now,
+      } as any,
+      createdAt: now,
+      updatedAt: now,
+    };
+  },
+
+  login(email: string, pass: string): User | null {
+    const db = getDatabase();
+    const row = db.getFirstSync<any>(
+      'SELECT * FROM usuarios WHERE email = ? AND senha = ? AND ativo = 1',
+      [email.toLowerCase().trim(), pass]
+    );
+    if (!row) return null;
+
+    const cfg = ConfigService.getConfig();
+    const now = new Date().toISOString();
+
+    return {
+      id: row.id,
+      empresaId: row.empresaId || 'local',
+      nome: row.nome,
+      email: row.email,
+      role: (row.role as any) || 'EMPRESA_ADMIN',
+      ativo: Boolean(row.ativo),
+      empresa: {
+        id: 'local',
+        nome: cfg?.nomeDistribuidora || row.empresaNome || 'Minha Distribuidora',
+        cidade: cfg?.cidade,
+        estado: cfg?.estado,
+        ativo: true,
+        createdAt: now,
+        updatedAt: now,
+      } as any,
+      createdAt: row.createdAt,
+      updatedAt: row.createdAt,
+    };
+  },
+
+  getUsuarioById(id: string): User | null {
+    const db = getDatabase();
+    const row = db.getFirstSync<any>('SELECT * FROM usuarios WHERE id = ? AND ativo = 1', [id]);
+    if (!row) return null;
+
+    const cfg = ConfigService.getConfig();
+    const now = new Date().toISOString();
+
+    return {
+      id: row.id,
+      empresaId: row.empresaId || 'local',
+      nome: row.nome,
+      email: row.email,
+      role: (row.role as any) || 'EMPRESA_ADMIN',
+      ativo: Boolean(row.ativo),
+      empresa: {
+        id: 'local',
+        nome: cfg?.nomeDistribuidora || row.empresaNome || 'Minha Distribuidora',
+        cidade: cfg?.cidade,
+        estado: cfg?.estado,
+        ativo: true,
+        createdAt: now,
+        updatedAt: now,
+      } as any,
+      createdAt: row.createdAt,
+      updatedAt: row.createdAt,
+    };
+  },
+};
 
 // ----------------------------------------------------
 // 1. SERVIÇO DE CONFIGURAÇÃO & ASSINATURA (PLAY STORE)
