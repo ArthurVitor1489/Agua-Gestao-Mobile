@@ -358,31 +358,6 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
                 )}
               </TouchableOpacity>
 
-              {/* Botão de Acesso ao Painel Super Admin (Arthur Master) */}
-              <TouchableOpacity
-                style={[styles.adminBtn, { backgroundColor: colors.surface, borderColor: '#f59e0b' }]}
-                onPress={() => {
-                  HapticService.light();
-                  setShowSuperAdminModal(true);
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                  <View style={[styles.adminBtnIcon, { backgroundColor: '#fef3c7' }]}>
-                    <ShieldCheck size={18} color="#b45309" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 13, fontWeight: '800', color: colors.text }}>
-                      Painel Super Admin (Master)
-                    </Text>
-                    <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 1 }}>
-                      Gerenciar clientes que baixaram o app & licenças
-                    </Text>
-                  </View>
-                </View>
-                <ChevronRight size={18} color={colors.textMuted} />
-              </TouchableOpacity>
-
               {/* Botão Sair da Conta (Logout) */}
               <TouchableOpacity
                 style={[styles.logoutBtn, { borderColor: colors.danger, backgroundColor: '#fee2e2' }]}
@@ -403,6 +378,20 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
                 <LogOut size={16} color={colors.danger} />
                 <Text style={{ color: colors.danger, fontWeight: '800', fontSize: 13 }}>
                   Sair da Conta (Fazer Logout)
+                </Text>
+              </TouchableOpacity>
+
+              {/* Versão do Programa (Toque para abrir painel admin) */}
+              <TouchableOpacity
+                onPress={() => {
+                  HapticService.light();
+                  setShowSuperAdminModal(true);
+                }}
+                activeOpacity={0.7}
+                style={styles.versionClickable}
+              >
+                <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '600' }}>
+                  Água Gestão Pro • Versão 1.0.0
                 </Text>
               </TouchableOpacity>
 
@@ -449,9 +438,17 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
               {/* Informações Técnicas */}
               <View style={[styles.techInfoBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <Text style={[styles.techTitle, { color: colors.text }]}>Informações do Aplicativo</Text>
-                <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
-                  • Versão: <Text style={{ fontWeight: 'bold', color: colors.text }}>1.0.0 Pro (Google Play Edition)</Text>
-                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    HapticService.light();
+                    setShowSuperAdminModal(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
+                    • Versão: <Text style={{ fontWeight: 'bold', color: colors.text }}>1.0.0 Pro (Google Play Edition)</Text>
+                  </Text>
+                </TouchableOpacity>
                 <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
                   • Banco de Dados: <Text style={{ fontWeight: 'bold', color: colors.text }}>SQLite Local (100% Offline)</Text>
                 </Text>
@@ -598,22 +595,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
-  adminBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    marginTop: 20,
-    marginBottom: 4,
-  },
-  adminBtnIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+  versionClickable: {
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 20,
+    paddingVertical: 10,
   },
   logoutBtn: {
     flexDirection: 'row',

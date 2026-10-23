@@ -230,18 +230,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
           </View>
         )}
 
-        {/* Acesso Master Super Admin */}
+        {/* Versão do App (Toque discreto para abrir Painel Admin) */}
         <TouchableOpacity
-          style={styles.adminAccessLink}
+          style={styles.versionRow}
           onPress={() => {
             HapticService.light();
             setShowSuperAdminModal(true);
           }}
           activeOpacity={0.7}
         >
-          <ShieldCheck size={13} color={colors.textMuted} />
-          <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '700' }}>
-            Painel Super Admin
+          <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '600' }}>
+            Versão 1.0.0 Pro
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -364,12 +363,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
-  adminAccessLink: {
-    flexDirection: 'row',
+  versionRow: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginTop: 18,
+    marginTop: 22,
     paddingVertical: 8,
   },
 });
