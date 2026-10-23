@@ -170,7 +170,7 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
                   { color: abaAtiva === 'produtos' ? colors.primary : colors.textMuted, fontWeight: abaAtiva === 'produtos' ? '800' : '600' },
                 ]}
               >
-                Produtos ({produtos.length})
+                Águas à Venda ({produtos.length})
               </Text>
             </TouchableOpacity>
 
@@ -223,7 +223,7 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
                   activeOpacity={0.8}
                 >
                   <Plus size={18} color="#fff" />
-                  <Text style={styles.novoProdBtnText}>CADASTRAR NOVO PRODUTO</Text>
+                  <Text style={styles.novoProdBtnText}>CADASTRAR NOVA ÁGUA / MARCA</Text>
                 </TouchableOpacity>
               </View>
 

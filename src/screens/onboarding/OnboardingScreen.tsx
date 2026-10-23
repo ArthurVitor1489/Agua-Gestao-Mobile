@@ -58,7 +58,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
 
     Alert.alert(
       'Tudo Pronto! 🎉',
-      'Sua distribuidora foi configurada com sucesso. Os produtos iniciais (Galão 20L, Botijão P13) já estão prontos para você vender!',
+      'Sua distribuidora foi configurada com sucesso. Os produtos de água mineral já estão prontos para você começar a vender!',
       [{ text: 'Começar Agora', onPress: onComplete }]
     );
   };
@@ -82,10 +82,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
         {/* Marca & Logo */}
         <View style={styles.brandBox}>
           <View style={[styles.logoCircle, { backgroundColor: colors.primary }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Droplets size={32} color="#fff" />
-              <Flame size={20} color="#f97316" style={{ marginLeft: -6, marginTop: 10 }} />
-            </View>
+            <Droplets size={36} color="#fff" />
           </View>
           <Text style={[styles.brandTitle, { color: colors.text }]}>Água Gestão Pro</Text>
           <View style={[styles.trialBadge, { backgroundColor: '#dcfce7', borderColor: '#86efac' }]}>

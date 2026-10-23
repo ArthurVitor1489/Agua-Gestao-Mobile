@@ -111,7 +111,7 @@ export const EstoqueScreen: React.FC = () => {
               { color: abaAtiva === 'produtos' ? colors.primary : colors.textMuted, fontWeight: abaAtiva === 'produtos' ? '800' : '600' },
             ]}
           >
-            Estoque Produtos
+            Catálogo de Águas
           </Text>
         </TouchableOpacity>
 
@@ -280,7 +280,7 @@ export const EstoqueScreen: React.FC = () => {
               }}
             >
               <Plus size={18} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>CADASTRAR NOVO PRODUTO</Text>
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>CADASTRAR NOVA ÁGUA / MARCA</Text>
             </TouchableOpacity>
 
             {produtos.map((p) => (

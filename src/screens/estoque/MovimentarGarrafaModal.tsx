@@ -97,9 +97,9 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
             {/* 1. Tipo do Vasilhame */}
-            <Text style={[styles.label, { color: colors.text }]}>1. Qual vasilhame quebrou / danificou?</Text>
+            <Text style={[styles.label, { color: colors.text }]}>1. Qual galão quebrou / danificou?</Text>
             <View style={styles.tipoRow}>
-              {['Galão 20L', 'Galão 10L', 'Botijão P13'].map((item) => {
+              {['Galão 20L', 'Galão 10L'].map((item) => {
                 const isSel = tipoVasilhame === item;
                 return (
                   <TouchableOpacity

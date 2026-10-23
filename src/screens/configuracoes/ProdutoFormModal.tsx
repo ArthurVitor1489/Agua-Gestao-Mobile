@@ -14,7 +14,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { ProdutosService } from '../../database/dbService';
 import { Produto, CategoriaProduto } from '../../database/models';
 import { HapticService } from '../../services/hapticService';
-import { X, Check, PackagePlus, Sparkles } from 'lucide-react-native';
+import { X, Check, Droplets } from 'lucide-react-native';
 
 interface ProdutoFormModalProps {
   visible: boolean;
@@ -48,17 +48,16 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
         setNome('');
         setCategoria('AGUA_20L');
         setPrecoVenda('');
-        setEstoqueAtual('0');
+        setEstoqueAtual('50');
       }
     }
   }, [visible, produtoParaEditar]);
 
-  const categoriasDisponiveis: { id: CategoriaProduto; label: string }[] = [
-    { id: 'AGUA_20L', label: '💧 Galão 20L (Retornável)' },
-    { id: 'AGUA_10L', label: '💧 Galão 10L (Retornável)' },
-    { id: 'GAS_P13', label: '🔥 Botijão Gás P13' },
-    { id: 'GARRAFAO_NOVO', label: '📦 Vasilhame Novo / Vazio' },
-    { id: 'OUTROS', label: '📌 Acessórios / Fardos / Outros' },
+  const tamanhosDisponiveis: { id: CategoriaProduto; label: string }[] = [
+    { id: 'AGUA_20L', label: '💧 Galão 20 Litros' },
+    { id: 'AGUA_10L', label: '💧 Galão 10 Litros' },
+    { id: 'GARRAFAO_NOVO', label: '📦 Vasilhame Vazio' },
+    { id: 'OUTROS', label: '🏷️ Descartável / Outro' },
   ];
 
   const handleSalvar = async () => {
@@ -66,11 +65,11 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
     const estoque = parseInt(estoqueAtual, 10) || 0;
 
     if (!nome.trim()) {
-      Alert.alert('Atenção', 'Informe o nome do produto.');
+      Alert.alert('Atenção', 'Informe o nome da água / marca que você vende (ex: Água Belle 20L).');
       return;
     }
     if (isNaN(preco) || preco <= 0) {
-      Alert.alert('Atenção', 'Informe um preço de venda válido.');
+      Alert.alert('Atenção', 'Informe o preço de venda válido.');
       return;
     }
 
@@ -96,7 +95,7 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
       onSuccess();
     } catch (e: any) {
       await HapticService.error();
-      Alert.alert('Erro', e.message || 'Falha ao salvar produto');
+      Alert.alert('Erro', e.message || 'Falha ao salvar produto de água');
     } finally {
       setSubmitting(false);
     }
@@ -108,13 +107,13 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
         <View style={[styles.container, { backgroundColor: colors.card }]}>
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <PackagePlus size={22} color={colors.primary} />
+              <Droplets size={22} color={colors.primary} />
               <View>
                 <Text style={[styles.title, { color: colors.text }]}>
-                  {produtoParaEditar ? 'Editar Produto' : 'Cadastrar Novo Produto'}
+                  {produtoParaEditar ? 'Editar Água' : 'Cadastrar Água Mineral'}
                 </Text>
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                  Item para venda no PDV e controle de estoque
+                  Marca de água que sua distribuidora vende
                 </Text>
               </View>
             </View>
@@ -124,27 +123,28 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            {/* Nome do Produto */}
-            <Text style={[styles.label, { color: colors.text }]}>Nome do Produto *</Text>
+            {/* Nome da Água / Marca */}
+            <Text style={[styles.label, { color: colors.text }]}>Nome da Água / Marca *</Text>
             <TextInput
               style={[
                 styles.input,
                 { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
               ]}
-              placeholder="Ex: Galão 20L Indaiá, Fardo 500ml c/ 12, Bomba USB..."
+              placeholder="Ex: Água Belle 20L, Indaiá 20L, Santa Joana..."
               placeholderTextColor={colors.textMuted}
               value={nome}
               onChangeText={setNome}
+              autoFocus
             />
 
-            {/* Categoria */}
-            <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>Tipo / Categoria:</Text>
+            {/* Tamanho / Embalagem */}
+            <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>Tamanho do Galão:</Text>
             <View style={styles.catGrid}>
-              {categoriasDisponiveis.map((cat) => {
-                const isSel = categoria === cat.id;
+              {tamanhosDisponiveis.map((tam) => {
+                const isSel = categoria === tam.id;
                 return (
                   <TouchableOpacity
-                    key={cat.id}
+                    key={tam.id}
                     style={[
                       styles.catBtn,
                       {
@@ -154,7 +154,7 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
                     ]}
                     onPress={() => {
                       HapticService.light();
-                      setCategoria(cat.id);
+                      setCategoria(tam.id);
                     }}
                   >
                     <Text
@@ -163,14 +163,14 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
                         { color: isSel ? '#fff' : colors.text, fontWeight: isSel ? '800' : '600' },
                       ]}
                     >
-                      {cat.label}
+                      {tam.label}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            {/* Preço de Venda e Estoque Inicial */}
+            {/* Preço de Venda e Estoque de Cheios */}
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.label, { color: colors.text }]}>Preço de Venda (R$) *</Text>
@@ -180,7 +180,7 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
                     { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
                   ]}
                   keyboardType="numeric"
-                  placeholder="Ex: 14,00"
+                  placeholder="Ex: 12,00"
                   placeholderTextColor={colors.textMuted}
                   value={precoVenda}
                   onChangeText={setPrecoVenda}
@@ -188,14 +188,14 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={[styles.label, { color: colors.text }]}>Estoque Atual (un)</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Galões Cheios (Estoque)</Text>
                 <TextInput
                   style={[
                     styles.input,
                     { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
                   ]}
                   keyboardType="numeric"
-                  placeholder="0"
+                  placeholder="50"
                   placeholderTextColor={colors.textMuted}
                   value={estoqueAtual}
                   onChangeText={setEstoqueAtual}
@@ -219,7 +219,7 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
                 <>
                   <Check size={20} color="#fff" />
                   <Text style={styles.confirmBtnText}>
-                    {produtoParaEditar ? 'Salvar Alterações' : 'Cadastrar Produto'}
+                    {produtoParaEditar ? 'Salvar Alterações' : 'Cadastrar Água'}
                   </Text>
                 </>
               )}
@@ -273,6 +273,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   catGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   catBtn: {
