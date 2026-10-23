@@ -53,9 +53,13 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
     }
   }, [visible, produtoParaEditar]);
 
-  const tamanhosDisponiveis: { id: CategoriaProduto; label: string }[] = [
-    { id: 'AGUA_20L', label: '💧 Galão 20 Litros' },
-    { id: 'GARRAFAO_NOVO', label: '📦 Vasilhame 20L Vazio' },
+  const produtosPredefinidos = [
+    { nome: 'Água Belle 20L', categoria: 'AGUA_20L' as CategoriaProduto, precoSugerido: '12,00' },
+    { nome: 'Água Sublime 20L', categoria: 'AGUA_20L' as CategoriaProduto, precoSugerido: '12,00' },
+    { nome: 'Água Indaiá 20L', categoria: 'AGUA_20L' as CategoriaProduto, precoSugerido: '14,00' },
+    { nome: 'Água Santa Joana 20L', categoria: 'AGUA_20L' as CategoriaProduto, precoSugerido: '13,00' },
+    { nome: 'Água Crystal 20L', categoria: 'AGUA_20L' as CategoriaProduto, precoSugerido: '14,00' },
+    { nome: 'Vasilhame 20L Vazio', categoria: 'GARRAFAO_NOVO' as CategoriaProduto, precoSugerido: '35,00' },
   ];
 
   const handleSalvar = async () => {
@@ -63,7 +67,7 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
     const estoque = parseInt(estoqueAtual, 10) || 0;
 
     if (!nome.trim()) {
-      Alert.alert('Atenção', 'Informe o nome da água / marca que você vende (ex: Água Belle 20L).');
+      Alert.alert('Atenção', 'Selecione ou digite o nome do produto.');
       return;
     }
     if (isNaN(preco) || preco <= 0) {
@@ -93,7 +97,7 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
       onSuccess();
     } catch (e: any) {
       await HapticService.error();
-      Alert.alert('Erro', e.message || 'Falha ao salvar produto de água');
+      Alert.alert('Erro', e.message || 'Falha ao salvar produto');
     } finally {
       setSubmitting(false);
     }
@@ -108,10 +112,10 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
               <Droplets size={22} color={colors.primary} />
               <View>
                 <Text style={[styles.title, { color: colors.text }]}>
-                  {produtoParaEditar ? 'Editar Água' : 'Cadastrar Água Mineral'}
+                  {produtoParaEditar ? 'Editar Produto' : 'Cadastrar Novo Produto'}
                 </Text>
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                  Marca de água que sua distribuidora vende
+                  Selecione o produto e defina o preço de venda
                 </Text>
               </View>
             </View>
@@ -121,30 +125,16 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            {/* Nome da Água / Marca */}
-            <Text style={[styles.label, { color: colors.text }]}>Nome da Água / Marca *</Text>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
-              ]}
-              placeholder="Ex: Água Belle 20L, Indaiá 20L, Santa Joana..."
-              placeholderTextColor={colors.textMuted}
-              value={nome}
-              onChangeText={setNome}
-              autoFocus
-            />
-
-            {/* Tamanho / Embalagem */}
-            <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>Tamanho do Galão:</Text>
-            <View style={styles.catGrid}>
-              {tamanhosDisponiveis.map((tam) => {
-                const isSel = categoria === tam.id;
+            {/* 1. Selecionar Produto / Marca com Botões Rápidos */}
+            <Text style={[styles.label, { color: colors.text }]}>1. Selecione o Produto / Marca:</Text>
+            <View style={styles.marcasGrid}>
+              {produtosPredefinidos.map((item) => {
+                const isSel = nome === item.nome;
                 return (
                   <TouchableOpacity
-                    key={tam.id}
+                    key={item.nome}
                     style={[
-                      styles.catBtn,
+                      styles.marcaBtn,
                       {
                         backgroundColor: isSel ? colors.primary : colors.surface,
                         borderColor: isSel ? colors.primary : colors.border,
@@ -152,23 +142,44 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
                     ]}
                     onPress={() => {
                       HapticService.light();
-                      setCategoria(tam.id);
+                      setNome(item.nome);
+                      setCategoria(item.categoria);
+                      if (!precoVenda || produtosPredefinidos.some((p) => p.precoSugerido === precoVenda)) {
+                        setPrecoVenda(item.precoSugerido);
+                      }
                     }}
+                    activeOpacity={0.7}
                   >
                     <Text
                       style={[
-                        styles.catText,
+                        styles.marcaBtnText,
                         { color: isSel ? '#fff' : colors.text, fontWeight: isSel ? '800' : '600' },
                       ]}
                     >
-                      {tam.label}
+                      {item.nome}
                     </Text>
+                    {isSel && <Check size={16} color="#fff" />}
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            {/* Preço de Venda e Estoque de Cheios */}
+            {/* 2. Nome do Produto (ou Digitar Outra Marca) */}
+            <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>
+              2. Nome do Produto (ou digite outra marca):
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
+              ]}
+              placeholder="Ex: Água Belle 20L, Água Sublime 20L..."
+              placeholderTextColor={colors.textMuted}
+              value={nome}
+              onChangeText={setNome}
+            />
+
+            {/* Preço de Venda e Estoque */}
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.label, { color: colors.text }]}>Preço de Venda (R$) *</Text>
@@ -186,7 +197,7 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={[styles.label, { color: colors.text }]}>Galões Cheios (Estoque)</Text>
+                <Text style={[styles.label, { color: colors.text }]}>Estoque Inicial (un)</Text>
                 <TextInput
                   style={[
                     styles.input,
@@ -217,7 +228,7 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
                 <>
                   <Check size={20} color="#fff" />
                   <Text style={styles.confirmBtnText}>
-                    {produtoParaEditar ? 'Salvar Alterações' : 'Cadastrar Água'}
+                    {produtoParaEditar ? 'Salvar Alterações' : 'Cadastrar Produto'}
                   </Text>
                 </>
               )}
@@ -270,19 +281,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: 15,
   },
-  catGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  marcasGrid: {
     gap: 8,
   },
-  catBtn: {
+  marcaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
   },
-  catText: {
-    fontSize: 13,
+  marcaBtnText: {
+    fontSize: 14,
   },
   footer: {
     padding: 16,
