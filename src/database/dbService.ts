@@ -920,15 +920,11 @@ export const PedidosService = {
         it.produtoId,
       ]);
 
-      // Se for água 20L, faz a troca padrão ANP: debita Cheios e credita Vazios
+      // Se for água 20L, debita Cheios
       if (prod && (prod.categoria === 'AGUA_20L' || prod.nome.includes('20L'))) {
         db.runSync(
           'UPDATE estoque_garrafoes SET quantidade = MAX(0, quantidade - ?) WHERE status = ?',
           [it.quantidade, 'CHEIO']
-        );
-        db.runSync(
-          'UPDATE estoque_garrafoes SET quantidade = quantidade + ? WHERE status = ?',
-          [it.quantidade, 'VAZIO']
         );
       }
     }

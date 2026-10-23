@@ -126,7 +126,7 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
             <View style={styles.localGrid}>
               {[
                 { id: 'Transporte da Fábrica', label: '🚛 Transporte da Fábrica (Caminhão)' },
-                { id: 'Translado no Centro de Distribuição (CD)', label: '🏢 Translado no CD / Pátio' },
+                { id: 'Translado no Depósito / Estoque', label: '🏢 Translado no Depósito / Estoque' },
                 { id: 'Rota de Entrega ao Cliente', label: '🛵 Rota de Entrega (Moto/Carroceria)' },
                 { id: 'Furo / Microfissura (Vazando)', label: '💧 Garrafão Furado / Vazamento' },
                 { id: 'Queda Acidental / Descarte', label: '💥 Queda Acidental / Descarte' },

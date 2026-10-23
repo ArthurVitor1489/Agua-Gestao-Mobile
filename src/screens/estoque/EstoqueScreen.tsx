@@ -17,17 +17,10 @@ import { MovimentarGarrafaModal } from './MovimentarGarrafaModal';
 import { ProdutoFormModal } from '../configuracoes/ProdutoFormModal';
 import { HapticService } from '../../services/hapticService';
 import {
-  Cylinder,
   Truck,
   AlertTriangle,
-  History,
-  Layers,
   ArrowUpRight,
   ArrowDownRight,
-  Package,
-  Droplets,
-  Flame,
-  CheckCircle2,
   Plus,
   RotateCcw,
 } from 'lucide-react-native';
@@ -40,7 +33,7 @@ export const EstoqueScreen: React.FC = () => {
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [abaAtiva, setAbaAtiva] = useState<'vasilhames' | 'produtos' | 'auditoria'>('vasilhames');
+  const [abaAtiva, setAbaAtiva] = useState<'produtos' | 'auditoria'>('produtos');
 
   // Modais
   const [showCargaModal, setShowCargaModal] = useState(false);
@@ -98,32 +91,17 @@ export const EstoqueScreen: React.FC = () => {
     );
   };
 
-  // Resumo de Vasilhames
+  // Resumo de Vasilhames e Cheios Disponíveis
   const resumo = EstoqueService.getResumoVasilhames();
-  const percentualCheios =
-    resumo.totalGeral > 0 ? Math.round((resumo.cheios / (resumo.cheios + resumo.vazios || 1)) * 100) : 0;
+  const totalCheiosDisponiveis = produtos.reduce(
+    (acc, p) => acc + (p.estoque?.quantidadeAtual || 0),
+    0
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Abas Superiores */}
       <View style={[styles.tabBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <TouchableOpacity
-          style={[styles.tabItem, abaAtiva === 'vasilhames' && { borderBottomColor: colors.primary, borderBottomWidth: 3 }]}
-          onPress={() => {
-            HapticService.light();
-            setAbaAtiva('vasilhames');
-          }}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              { color: abaAtiva === 'vasilhames' ? colors.primary : colors.textMuted, fontWeight: abaAtiva === 'vasilhames' ? '800' : '600' },
-            ]}
-          >
-            Vasilhames & Pátio
-          </Text>
-        </TouchableOpacity>
-
         <TouchableOpacity
           style={[styles.tabItem, abaAtiva === 'produtos' && { borderBottomColor: colors.primary, borderBottomWidth: 3 }]}
           onPress={() => {
@@ -137,7 +115,7 @@ export const EstoqueScreen: React.FC = () => {
               { color: abaAtiva === 'produtos' ? colors.primary : colors.textMuted, fontWeight: abaAtiva === 'produtos' ? '800' : '600' },
             ]}
           >
-            Catálogo de Águas
+            Estoque de Águas
           </Text>
         </TouchableOpacity>
 
@@ -200,104 +178,37 @@ export const EstoqueScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* ---------------- ABA 1: VASILHAMES & PÁTIO ---------------- */}
-        {abaAtiva === 'vasilhames' && (
-          <>
+        {/* ---------------- ABA 1: ESTOQUE DE ÁGUAS ---------------- */}
+        {abaAtiva === 'produtos' && (
+          <View style={{ gap: 10 }}>
             {/* Cards de Resumo Rápido */}
             <View style={styles.kpiGrid}>
               <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '800' }}>CHEIOS PRONTOS</Text>
-                <Text style={[styles.kpiNum, { color: colors.success }]}>{resumo.cheios}</Text>
-                <Text style={{ fontSize: 11, color: colors.textMuted }}>Prontos p/ rota</Text>
+                <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '800', textAlign: 'center' }}>
+                  CHEIOS DISPONÍVEIS
+                </Text>
+                <Text style={[styles.kpiNum, { color: colors.success }]}>{totalCheiosDisponiveis}</Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted }}>Prontos p/ venda</Text>
               </View>
 
               <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '800' }}>VAZIOS NO PÁTIO</Text>
-                <Text style={[styles.kpiNum, { color: colors.primary }]}>{resumo.vazios}</Text>
-                <Text style={{ fontSize: 11, color: colors.textMuted }}>Aguardando fábrica</Text>
-              </View>
-
-              <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '800' }}>AVARIADOS</Text>
+                <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '800', textAlign: 'center' }}>
+                  AVARIADOS
+                </Text>
                 <Text style={[styles.kpiNum, { color: colors.secondary }]}>{resumo.avarias}</Text>
-                <Text style={{ fontSize: 11, color: colors.textMuted }}>Quebras no CD/transporte</Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted }}>Perdas registradas</Text>
               </View>
 
               <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '800' }}>TOTAL VASILHAMES</Text>
-                <Text style={[styles.kpiNum, { color: colors.text }]}>{resumo.totalGeral}</Text>
-                <Text style={{ fontSize: 11, color: colors.textMuted }}>Patrimônio em estoque</Text>
+                <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '800', textAlign: 'center' }}>
+                  MARCAS
+                </Text>
+                <Text style={[styles.kpiNum, { color: colors.text }]}>{produtos.length}</Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted }}>Ativas</Text>
               </View>
             </View>
 
-            {/* Balanço Operacional Visual */}
-            <View style={[styles.balanceCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Droplets size={22} color={colors.primary} />
-                  <View>
-                    <Text style={[styles.balanceTitle, { color: colors.text }]}>Galão de Água 20L</Text>
-                    <Text style={{ fontSize: 12, color: colors.textMuted }}>Ciclo de Vasilhames Retornáveis</Text>
-                  </View>
-                </View>
-                <View style={[styles.badgePercent, { backgroundColor: colors.primaryLight }]}>
-                  <Text style={{ color: colors.primary, fontWeight: '900', fontSize: 12 }}>
-                    {percentualCheios}% Cheios
-                  </Text>
-                </View>
-              </View>
-
-              {/* Barra de Progresso Visual Cheios vs Vazios */}
-              <View style={[styles.progressTrack, { backgroundColor: colors.surface }]}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${Math.min(100, Math.max(5, percentualCheios))}%`, backgroundColor: colors.success },
-                  ]}
-                />
-              </View>
-
-              <View style={styles.balanceLegendRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <View style={[styles.dot, { backgroundColor: colors.success }]} />
-                  <Text style={{ fontSize: 12, color: colors.text, fontWeight: '700' }}>
-                    {resumo.cheios} un Cheios
-                  </Text>
-                </View>
-
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <View style={[styles.dot, { backgroundColor: colors.primary }]} />
-                  <Text style={{ fontSize: 12, color: colors.text, fontWeight: '700' }}>
-                    {resumo.vazios} un Vazios
-                  </Text>
-                </View>
-
-                {resumo.avarias > 0 && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <View style={[styles.dot, { backgroundColor: colors.secondary }]} />
-                    <Text style={{ fontSize: 12, color: colors.secondary, fontWeight: '700' }}>
-                      {resumo.avarias} avarias
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            {/* Como funciona o fluxo */}
-            <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.infoBoxTitle, { color: colors.text }]}>💡 Como funciona o ciclo simples:</Text>
-              <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4, lineHeight: 18 }}>
-                • <Text style={{ fontWeight: 'bold' }}>Chegada da fábrica:</Text> digite a quantidade de galões cheios recebidos para somar ao estoque.{'\n'}
-                • <Text style={{ fontWeight: 'bold' }}>Venda em rota / balcão:</Text> ao vender água 20L, o app debita 1 cheio e credita 1 vazio automaticamente.{'\n'}
-                • <Text style={{ fontWeight: 'bold' }}>Avarias e quebras:</Text> se quebrar no transporte ou no CD, lance na opção "Lançar Avaria" para manter seu estoque sempre exato.
-              </Text>
-            </View>
-          </>
-        )}
-
-        {/* ---------------- ABA 2: PRODUTOS ---------------- */}
-        {abaAtiva === 'produtos' && (
-          <View style={{ gap: 8 }}>
+            {/* Botão Cadastrar Produto */}
             <TouchableOpacity
               style={{
                 flexDirection: 'row',
@@ -307,7 +218,7 @@ export const EstoqueScreen: React.FC = () => {
                 paddingVertical: 12,
                 borderRadius: 12,
                 gap: 6,
-                marginBottom: 6,
+                marginBottom: 4,
               }}
               onPress={() => {
                 HapticService.medium();
@@ -318,6 +229,7 @@ export const EstoqueScreen: React.FC = () => {
               <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>CADASTRAR NOVA ÁGUA / MARCA</Text>
             </TouchableOpacity>
 
+            {/* Lista dos Produtos */}
             {produtos.map((p) => (
               <View
                 key={p.id}
@@ -349,6 +261,22 @@ export const EstoqueScreen: React.FC = () => {
                 </View>
               </View>
             ))}
+
+            {produtos.length === 0 && (
+              <Text style={{ textAlign: 'center', color: colors.textMuted, padding: 30 }}>
+                Nenhuma água ou marca cadastrada ainda.
+              </Text>
+            )}
+
+            {/* Como funciona o estoque simples */}
+            <View style={[styles.infoBox, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 6 }]}>
+              <Text style={[styles.infoBoxTitle, { color: colors.text }]}>💡 Como funciona o estoque simples:</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4, lineHeight: 18 }}>
+                • <Text style={{ fontWeight: 'bold' }}>Carga de fábrica:</Text> toque em "Carga Fábrica" e informe os galões cheios recebidos para somar ao estoque.{'\n'}
+                • <Text style={{ fontWeight: 'bold' }}>Vendas em pedidos:</Text> cada água vendida dá baixa automática no estoque de cheios.{'\n'}
+                • <Text style={{ fontWeight: 'bold' }}>Avarias e quebras:</Text> se quebrar ou furar um galão cheio, registre em "Lançar Avaria" para manter tudo exato.
+              </Text>
+            </View>
           </View>
         )}
 
@@ -498,56 +426,21 @@ const styles = StyleSheet.create({
   },
   kpiGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   kpiCard: {
-    width: '48.5%',
-    padding: 14,
+    flex: 1,
+    padding: 12,
     borderRadius: 14,
     borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   kpiNum: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '900',
-    marginVertical: 2,
-  },
-  balanceCard: {
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 14,
-  },
-  balanceTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  badgePercent: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  progressTrack: {
-    height: 12,
-    borderRadius: 6,
-    overflow: 'hidden',
-    marginVertical: 14,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 6,
-  },
-  balanceLegendRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    marginVertical: 4,
   },
   infoBox: {
     padding: 14,
