@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { useTheme } from '../../context/ThemeContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { ConfigService } from '../../database/dbService';
+import { ConfiguracoesModal } from '../../screens/configuracoes/ConfiguracoesModal';
+import { HapticService } from '../../services/hapticService';
 import {
   Building2,
   Sun,
@@ -10,6 +12,7 @@ import {
   Sparkles,
   ShieldCheck,
   Smartphone,
+  Settings,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -18,12 +21,17 @@ export const Header: React.FC = () => {
   const { isTrialActive, daysRemaining, openPaywall, isSubscribed } = useSubscription();
   const insets = useSafeAreaInsets();
   const [nomeDistribuidora, setNomeDistribuidora] = useState('Água Gestão Pro');
+  const [showConfigModal, setShowConfigModal] = useState(false);
 
-  useEffect(() => {
+  const carregarConfig = () => {
     const cfg = ConfigService.getConfig();
     if (cfg?.nomeDistribuidora) {
       setNomeDistribuidora(cfg.nomeDistribuidora);
     }
+  };
+
+  useEffect(() => {
+    carregarConfig();
   }, []);
 
   const toggleTheme = () => {
@@ -68,6 +76,18 @@ export const Header: React.FC = () => {
           >
             {isDark ? <Sun size={17} color="#fbbf24" /> : <Moon size={17} color={colors.text} />}
           </TouchableOpacity>
+
+          {/* Botão de Configurações (⚙️) */}
+          <TouchableOpacity
+            style={[styles.iconButton, { backgroundColor: colors.surface }]}
+            onPress={() => {
+              HapticService.light();
+              setShowConfigModal(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Settings size={18} color={colors.primary} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -99,6 +119,13 @@ export const Header: React.FC = () => {
           </Text>
         </View>
       )}
+
+      {/* Modal de Configurações e Gestão de Produtos */}
+      <ConfiguracoesModal
+        visible={showConfigModal}
+        onClose={() => setShowConfigModal(false)}
+        onConfigUpdated={carregarConfig}
+      />
     </View>
   );
 };

@@ -13,6 +13,7 @@ import { EstoqueService, ProdutosService } from '../../database/dbService';
 import { EstoqueGarrafao, Produto, MovimentacaoEstoque } from '../../database/models';
 import { CargaEnvaseModal } from './CargaEnvaseModal';
 import { MovimentarGarrafaModal } from './MovimentarGarrafaModal';
+import { ProdutoFormModal } from '../configuracoes/ProdutoFormModal';
 import { HapticService } from '../../services/hapticService';
 import {
   Cylinder,
@@ -26,6 +27,7 @@ import {
   Droplets,
   Flame,
   CheckCircle2,
+  Plus,
 } from 'lucide-react-native';
 
 export const EstoqueScreen: React.FC = () => {
@@ -41,6 +43,7 @@ export const EstoqueScreen: React.FC = () => {
   // Modais
   const [showCargaModal, setShowCargaModal] = useState(false);
   const [showMovimentarModal, setShowMovimentarModal] = useState(false);
+  const [showNovoProdutoModal, setShowNovoProdutoModal] = useState(false);
 
   useEffect(() => {
     carregarEstoque();
@@ -260,6 +263,26 @@ export const EstoqueScreen: React.FC = () => {
         {/* ---------------- ABA 2: PRODUTOS ---------------- */}
         {abaAtiva === 'produtos' && (
           <View style={{ gap: 8 }}>
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: colors.primary,
+                paddingVertical: 12,
+                borderRadius: 12,
+                gap: 6,
+                marginBottom: 6,
+              }}
+              onPress={() => {
+                HapticService.medium();
+                setShowNovoProdutoModal(true);
+              }}
+            >
+              <Plus size={18} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>CADASTRAR NOVO PRODUTO</Text>
+            </TouchableOpacity>
+
             {produtos.map((p) => (
               <View
                 key={p.id}
@@ -353,6 +376,15 @@ export const EstoqueScreen: React.FC = () => {
         onClose={() => setShowMovimentarModal(false)}
         onSuccess={() => {
           setShowMovimentarModal(false);
+          carregarEstoque();
+        }}
+      />
+
+      <ProdutoFormModal
+        visible={showNovoProdutoModal}
+        onClose={() => setShowNovoProdutoModal(false)}
+        onSuccess={() => {
+          setShowNovoProdutoModal(false);
           carregarEstoque();
         }}
       />

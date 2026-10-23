@@ -154,6 +154,11 @@ export const ProdutosService = {
     }
     return this.getProdutos().find((x) => x.id === id)!;
   },
+
+  excluirProduto(id: string): void {
+    const db = getDatabase();
+    db.runSync('UPDATE produtos SET ativo = 0 WHERE id = ?', [id]);
+  },
 };
 
 // ----------------------------------------------------
