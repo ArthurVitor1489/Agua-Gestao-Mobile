@@ -346,7 +346,7 @@ export const EstoqueScreen: React.FC = () => {
 
       <MovimentarGarrafaModal
         visible={showMovimentarModal}
-        garrafoes={garrafoes}
+        produtos={produtos}
         onClose={() => setShowMovimentarModal(false)}
         onSuccess={() => {
           setShowMovimentarModal(false);

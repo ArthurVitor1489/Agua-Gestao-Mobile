@@ -573,29 +573,37 @@ export const EstoqueService = {
     const db = getDatabase();
     const now = new Date().toISOString();
 
-    // 1. Subtrair da situação de origem
-    const origemRow = db.getFirstSync<any>(
-      'SELECT id, quantidade FROM estoque_garrafoes WHERE status = ? ORDER BY quantidade DESC LIMIT 1',
-      [params.situacaoOrigem]
-    );
-
-    if (origemRow) {
-      db.runSync('UPDATE estoque_garrafoes SET quantidade = MAX(0, quantidade - ?) WHERE id = ?', [
-        params.quantidade,
-        origemRow.id,
-      ]);
+    // 1. Determinar o produto alvo
+    let targetProdutoId = params.produtoId;
+    if (!targetProdutoId || targetProdutoId === 'prod-galao-20l') {
+      const topProd = db.getFirstSync<any>(
+        'SELECT id, nome FROM produtos WHERE estoqueAtual > 0 AND ativo = 1 ORDER BY estoqueAtual DESC LIMIT 1'
+      ) || db.getFirstSync<any>('SELECT id, nome FROM produtos WHERE ativo = 1 LIMIT 1');
+      if (topProd) {
+        targetProdutoId = topProd.id;
+      }
     }
 
-    // 2. Se estava CHEIO, também perdeu o conteúdo (água/gás), debita do estoque de produtos
-    if (params.situacaoOrigem === 'CHEIO') {
-      const prodId = params.produtoId || 'prod-galao-20l';
+    // 2. Subtrair do estoque do produto (perda da água/cheio)
+    if (targetProdutoId) {
       db.runSync('UPDATE produtos SET estoqueAtual = MAX(0, estoqueAtual - ?) WHERE id = ?', [
         params.quantidade,
-        prodId,
+        targetProdutoId,
       ]);
     }
 
-    // 3. Adicionar aos AVARIADOS
+    // 3. Subtrair dos garrafões CHEIOS
+    const existingCheio = db.getFirstSync<any>(
+      "SELECT id, quantidade FROM estoque_garrafoes WHERE status = 'CHEIO' ORDER BY quantidade DESC LIMIT 1"
+    );
+    if (existingCheio) {
+      db.runSync('UPDATE estoque_garrafoes SET quantidade = MAX(0, quantidade - ?) WHERE id = ?', [
+        params.quantidade,
+        existingCheio.id,
+      ]);
+    }
+
+    // 4. Adicionar aos AVARIADOS (DANIFICADO)
     const destRow = db.getFirstSync<any>(
       "SELECT id FROM estoque_garrafoes WHERE status = 'DANIFICADO' LIMIT 1"
     );
@@ -613,15 +621,20 @@ export const EstoqueService = {
       );
     }
 
-    // 4. Registrar auditoria detalhada
-    const motivoAudit = `Avaria (${params.localAvaria}): ${params.quantidade}x ${params.tipoVasilhame} (${params.situacaoOrigem === 'CHEIO' ? 'Estava Cheio' : 'Estava Vazio'})${
+    // 5. Registrar histórico no extrato de movimentação de estoque
+    const prodRow = targetProdutoId
+      ? db.getFirstSync<any>('SELECT nome FROM produtos WHERE id = ?', [targetProdutoId])
+      : null;
+    const nomeProd = prodRow?.nome || params.tipoVasilhame || 'Galão de Água 20L';
+
+    const motivoAudit = `Avaria (${params.localAvaria}): -${params.quantidade} Cheio (${nomeProd})${
       params.observacao ? ` - ${params.observacao}` : ''
     }`;
 
     db.runSync(
       `INSERT INTO movimentacoes_estoque (id, produtoId, produtoNome, tipo, quantidade, motivo, data)
-       VALUES (?, null, ?, 'AJUSTE', ?, ?, ?)`,
-      [generateId(), params.tipoVasilhame, params.quantidade, motivoAudit, now]
+       VALUES (?, ?, ?, 'SAIDA', ?, ?, ?)`,
+      [generateId(), targetProdutoId || null, nomeProd, params.quantidade, motivoAudit, now]
     );
   },
 

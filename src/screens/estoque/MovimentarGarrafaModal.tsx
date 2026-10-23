@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,30 +12,43 @@ import {
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { EstoqueService } from '../../database/dbService';
-import { EstoqueGarrafao } from '../../database/models';
+import { Produto } from '../../database/models';
 import { HapticService } from '../../services/hapticService';
 import { X, AlertTriangle, Check, Minus, Plus } from 'lucide-react-native';
 
 interface MovimentarGarrafaModalProps {
   visible: boolean;
-  garrafoes?: EstoqueGarrafao[];
+  produtos?: Produto[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
 export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
   visible,
+  produtos = [],
   onClose,
   onSuccess,
 }) => {
   const { colors } = useTheme();
 
+  const produtosValidos = produtos.filter((p) => p.ativo && p.categoria !== 'GARRAFAO_NOVO');
+  const [selectedProdutoId, setSelectedProdutoId] = useState<string>('');
   const [tipoVasilhame, setTipoVasilhame] = useState('Galão 20L');
   const situacaoOrigem = 'CHEIO';
   const [quantidade, setQuantidade] = useState('1');
-  const [localAvaria, setLocalAvaria] = useState('Translado no Centro de Distribuição (CD)');
+  const [localAvaria, setLocalAvaria] = useState('Translado no Depósito / Estoque');
   const [observacao, setObservacao] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (visible && produtosValidos.length > 0) {
+      // Pré-seleciona a água com mais estoque ou a primeira
+      const comEstoque = [...produtosValidos].sort(
+        (a, b) => (b.estoque?.quantidadeAtual || 0) - (a.estoque?.quantidadeAtual || 0)
+      )[0];
+      setSelectedProdutoId(comEstoque.id);
+    }
+  }, [visible, produtos]);
 
   const alterarQtd = (delta: number) => {
     HapticService.light();
@@ -51,17 +64,19 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
       return;
     }
 
+    const prodSelecionado = produtosValidos.find((p) => p.id === selectedProdutoId);
+
     try {
       setSubmitting(true);
       await HapticService.medium();
 
       EstoqueService.registrarAvaria({
-        tipoVasilhame,
+        tipoVasilhame: prodSelecionado ? prodSelecionado.nome : tipoVasilhame,
         situacaoOrigem,
         quantidade: qtd,
         localAvaria,
         observacao: observacao.trim() || undefined,
-        produtoId: tipoVasilhame.includes('20L') ? 'prod-galao-20l' : undefined,
+        produtoId: selectedProdutoId || undefined,
       });
 
       await HapticService.success();
@@ -86,7 +101,7 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
               <View>
                 <Text style={[styles.title, { color: colors.text }]}>Registrar Avaria / Quebra</Text>
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                  Baixa de garrafão danificado no CD ou transporte
+                  Baixa de garrafão cheio danificado (perda de água)
                 </Text>
               </View>
             </View>
@@ -96,28 +111,64 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            {/* 1. Tipo do Vasilhame */}
-            <Text style={[styles.label, { color: colors.text }]}>1. Vasilhame Danificado:</Text>
-            <View style={styles.tipoRow}>
-              <View
-                style={[
-                  styles.tipoBtn,
-                  {
-                    backgroundColor: colors.primaryLight,
-                    borderColor: colors.primary,
-                  },
-                ]}
-              >
-                <Text
+            {/* 1. Seleção do Produto / Marca Avariada */}
+            <Text style={[styles.label, { color: colors.text }]}>1. Qual água/marca quebrou ou avariou?</Text>
+            {produtosValidos.length > 0 ? (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {produtosValidos.map((prod) => {
+                  const isSel = selectedProdutoId === prod.id;
+                  const saldo = prod.estoque?.quantidadeAtual || 0;
+                  return (
+                    <TouchableOpacity
+                      key={prod.id}
+                      style={[
+                        styles.tipoBtn,
+                        {
+                          backgroundColor: isSel ? colors.primaryLight : colors.surface,
+                          borderColor: isSel ? colors.primary : colors.border,
+                          borderWidth: isSel ? 2 : 1,
+                        },
+                      ]}
+                      onPress={() => {
+                        HapticService.light();
+                        setSelectedProdutoId(prod.id);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.tipoBtnText,
+                          { color: isSel ? colors.primary : colors.text, fontWeight: isSel ? '800' : '600' },
+                        ]}
+                      >
+                        💧 {prod.nome} ({saldo} cheios)
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.tipoRow}>
+                <View
                   style={[
-                    styles.tipoBtnText,
-                    { color: colors.primary, fontWeight: '800' },
+                    styles.tipoBtn,
+                    {
+                      backgroundColor: colors.primaryLight,
+                      borderColor: colors.primary,
+                    },
                   ]}
                 >
-                  💧 Galão 20 Litros
-                </Text>
+                  <Text
+                    style={[
+                      styles.tipoBtnText,
+                      { color: colors.primary, fontWeight: '800' },
+                    ]}
+                  >
+                    💧 Galão de Água 20L
+                  </Text>
+                </View>
               </View>
-            </View>
+            )}
 
             {/* 2. Onde ocorreu a avaria? */}
             <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>
@@ -125,8 +176,8 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
             </Text>
             <View style={styles.localGrid}>
               {[
-                { id: 'Transporte da Fábrica', label: '🚛 Transporte da Fábrica (Caminhão)' },
                 { id: 'Translado no Depósito / Estoque', label: '🏢 Translado no Depósito / Estoque' },
+                { id: 'Transporte da Fábrica', label: '🚛 Transporte da Fábrica (Caminhão)' },
                 { id: 'Rota de Entrega ao Cliente', label: '🛵 Rota de Entrega (Moto/Carroceria)' },
                 { id: 'Furo / Microfissura (Vazando)', label: '💧 Garrafão Furado / Vazamento' },
                 { id: 'Queda Acidental / Descarte', label: '💥 Queda Acidental / Descarte' },
