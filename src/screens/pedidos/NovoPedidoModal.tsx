@@ -383,18 +383,19 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
 
                 {itensCarrinho.map((item) => (
                   <View key={item.produto.id} style={[styles.cartItemRow, { borderBottomColor: colors.border }]}>
-                    <View style={{ flex: 1, paddingRight: 6 }}>
-                      <Text style={[styles.cartItemName, { color: colors.text }]}>{item.produto.nome}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                        <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                          R$ {item.valorUnitario.toFixed(2)} un • Sub: R$ {((item.quantidade || 0) * item.valorUnitario).toFixed(2)}
-                        </Text>
+                    <View style={{ flex: 1, paddingRight: 10, justifyContent: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Text style={[styles.cartItemName, { color: colors.text }]}>{item.produto.nome}</Text>
                         {item.valorUnitario !== item.produto.precoVenda && (
-                          <View style={{ backgroundColor: '#dcfce7', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
-                            <Text style={{ fontSize: 10, fontWeight: '800', color: '#15803d' }}>Preço Cliente</Text>
+                          <View style={{ backgroundColor: '#dcfce7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                            <Text style={{ fontSize: 10, fontWeight: '800', color: '#15803d' }}>Preço Especial</Text>
                           </View>
                         )}
                       </View>
+
+                      <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
+                        R$ {item.valorUnitario.toFixed(2)} un • Sub: <Text style={{ fontWeight: '800', color: colors.text }}>R$ {((item.quantidade || 0) * item.valorUnitario).toFixed(2)}</Text>
+                      </Text>
                     </View>
 
                     <View style={styles.qtyControls}>
@@ -715,7 +716,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
   },
   cartItemName: {
