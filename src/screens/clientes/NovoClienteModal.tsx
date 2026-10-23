@@ -13,9 +13,8 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { ClientesService, ProdutosService } from '../../database/dbService';
 import { Produto, Cliente } from '../../database/models';
-import { LocationService } from '../../services/locationService';
 import { HapticService } from '../../services/hapticService';
-import { X, MapPin, Check, Sparkles, DollarSign, Edit2 } from 'lucide-react-native';
+import { X, Check, Sparkles, DollarSign, Edit2 } from 'lucide-react-native';
 
 interface NovoClienteModalProps {
   visible: boolean;
@@ -45,7 +44,6 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
   // GPS
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
-  const [capturingGps, setCapturingGps] = useState(false);
 
   // Produtos e Preços Personalizados
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -100,26 +98,6 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
       }
     }
   }, [visible, clienteParaEditar]);
-
-  const capturarGps = async () => {
-    try {
-      setCapturingGps(true);
-      await HapticService.light();
-      const coords = await LocationService.getCurrentCoordinates();
-      if (coords) {
-        setLatitude(coords.latitude);
-        setLongitude(coords.longitude);
-        await HapticService.success();
-        Alert.alert('GPS Capturado!', `Lat: ${coords.latitude.toFixed(5)}, Long: ${coords.longitude.toFixed(5)}`);
-      } else {
-        Alert.alert('Aviso', 'Não foi possível capturar as coordenadas GPS.');
-      }
-    } catch {
-      Alert.alert('Erro', 'Falha ao acessar GPS.');
-    } finally {
-      setCapturingGps(false);
-    }
-  };
 
   const setPrecoDoProduto = (produtoId: string, valorStr: string) => {
     setPrecosPersonalizados({
@@ -348,32 +326,6 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
               onChangeText={setPontoReferencia}
             />
 
-            {/* Captura de Coordenadas GPS */}
-            <TouchableOpacity
-              style={[
-                styles.gpsBtn,
-                {
-                  backgroundColor: latitude ? '#dcfce7' : colors.surface,
-                  borderColor: latitude ? '#15803d' : colors.border,
-                },
-              ]}
-              onPress={capturarGps}
-              disabled={capturingGps}
-            >
-              {capturingGps ? (
-                <ActivityIndicator color={colors.primary} size="small" />
-              ) : (
-                <>
-                  <MapPin size={18} color={latitude ? '#15803d' : colors.primary} />
-                  <Text style={[styles.gpsBtnText, { color: latitude ? '#15803d' : colors.primary }]}>
-                    {latitude
-                      ? `GPS Salvo: ${latitude.toFixed(4)}, ${longitude?.toFixed(4)}`
-                      : 'Capturar Coordenadas GPS Atuais'}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-
             <View style={{ height: 20 }} />
           </ScrollView>
 
@@ -478,20 +430,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '800',
-  },
-  gpsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-    marginTop: 14,
-  },
-  gpsBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
   },
   footer: {
     padding: 16,
