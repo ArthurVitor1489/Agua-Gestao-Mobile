@@ -17,6 +17,7 @@ import { useSubscription } from '../../context/SubscriptionContext';
 import { ConfigService, ProdutosService } from '../../database/dbService';
 import { Produto } from '../../database/models';
 import { ProdutoFormModal } from './ProdutoFormModal';
+import { SuperAdminModal } from '../admin/SuperAdminModal';
 import { HapticService } from '../../services/hapticService';
 import {
   X,
@@ -33,6 +34,7 @@ import {
   MapPin,
   Check,
   LogOut,
+  ChevronRight,
 } from 'lucide-react-native';
 
 interface ConfiguracoesModalProps {
@@ -62,8 +64,9 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
   const [estado, setEstado] = useState('SP');
   const [salvandoConfig, setSalvandoConfig] = useState(false);
 
-  // Modal de Produto
+  // Modal de Produto & Super Admin
   const [showProdutoModal, setShowProdutoModal] = useState(false);
+  const [showSuperAdminModal, setShowSuperAdminModal] = useState(false);
   const [produtoEmEdicao, setProdutoEmEdicao] = useState<Produto | null>(null);
 
   useEffect(() => {
@@ -355,6 +358,31 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
                 )}
               </TouchableOpacity>
 
+              {/* Botão de Acesso ao Painel Super Admin (Arthur Master) */}
+              <TouchableOpacity
+                style={[styles.adminBtn, { backgroundColor: colors.surface, borderColor: '#f59e0b' }]}
+                onPress={() => {
+                  HapticService.light();
+                  setShowSuperAdminModal(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                  <View style={[styles.adminBtnIcon, { backgroundColor: '#fef3c7' }]}>
+                    <ShieldCheck size={18} color="#b45309" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: colors.text }}>
+                      Painel Super Admin (Master)
+                    </Text>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 1 }}>
+                      Gerenciar clientes que baixaram o app & licenças
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+
               {/* Botão Sair da Conta (Logout) */}
               <TouchableOpacity
                 style={[styles.logoutBtn, { borderColor: colors.danger, backgroundColor: '#fee2e2' }]}
@@ -449,6 +477,12 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
               setProdutoEmEdicao(null);
               carregarDados();
             }}
+          />
+
+          {/* Modal Super Admin Master */}
+          <SuperAdminModal
+            visible={showSuperAdminModal}
+            onClose={() => setShowSuperAdminModal(false)}
           />
         </View>
       </View>
@@ -563,6 +597,23 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '800',
+  },
+  adminBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    marginTop: 20,
+    marginBottom: 4,
+  },
+  adminBtnIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logoutBtn: {
     flexDirection: 'row',

@@ -1,4 +1,5 @@
 import { getDatabase } from './sqlite';
+import { CloudAdminService } from '../services/cloudAdminService';
 import {
   User,
   Cliente,
@@ -92,6 +93,20 @@ export const LocalAuthService = {
        VALUES (?, ?, ?, ?, 'ADMIN', 'local', ?, 1, ?)`,
       [id, payload.nome, emailNorm, payload.senha, payload.nomeDistribuidora, now]
     );
+
+    // 4. Registrar no painel Super Admin (nuvem e cache local)
+    try {
+      CloudAdminService.registrarDistribuidora({
+        nomeDistribuidora: payload.nomeDistribuidora,
+        responsavel: payload.nome,
+        email: emailNorm,
+        whatsapp: payload.whatsapp,
+        cidade: payload.cidade,
+        estado: payload.estado,
+      });
+    } catch (e) {
+      console.warn('Erro ao registrar distribuidora para admin:', e);
+    }
 
     return {
       id,

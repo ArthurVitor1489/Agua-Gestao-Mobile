@@ -17,6 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { AuthService } from '../../services/authService';
 import { HapticService } from '../../services/hapticService';
+import { SuperAdminModal } from '../admin/SuperAdminModal';
 import {
   Lock,
   Mail,
@@ -26,6 +27,7 @@ import {
   Sparkles,
   Eye,
   EyeOff,
+  ShieldCheck,
 } from 'lucide-react-native';
 
 interface LoginScreenProps {
@@ -44,6 +46,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
   const [submitting, setSubmitting] = useState(false);
   const [hasBiometrics, setHasBiometrics] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [showSuperAdminModal, setShowSuperAdminModal] = useState(false);
 
   useEffect(() => {
     checkBiometrics();
@@ -226,7 +229,28 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Acesso Master Super Admin */}
+        <TouchableOpacity
+          style={styles.adminAccessLink}
+          onPress={() => {
+            HapticService.light();
+            setShowSuperAdminModal(true);
+          }}
+          activeOpacity={0.7}
+        >
+          <ShieldCheck size={13} color={colors.textMuted} />
+          <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '700' }}>
+            Painel Super Admin
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
+
+      {/* Modal Super Admin Master */}
+      <SuperAdminModal
+        visible={showSuperAdminModal}
+        onClose={() => setShowSuperAdminModal(false)}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -339,5 +363,13 @@ const styles = StyleSheet.create({
   registerLink: {
     fontSize: 13,
     fontWeight: '800',
+  },
+  adminAccessLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 18,
+    paddingVertical: 8,
   },
 });
