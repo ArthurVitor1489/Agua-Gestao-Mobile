@@ -173,6 +173,13 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
     );
   } catch {}
 
+  // Zeramento de estoque solicitado: produtos com saldo 0 e garrafões zerados
+  try {
+    db.runSync('UPDATE produtos SET estoqueAtual = 0');
+    db.runSync('DELETE FROM estoque_garrafoes');
+    db.runSync('DELETE FROM movimentacoes_estoque');
+  } catch {}
+
   // Migrações seguras de colunas caso o banco já existisse no aparelho
   try { db.execSync('ALTER TABLE usuarios ADD COLUMN empresaNome TEXT;'); } catch {}
   try { db.execSync("ALTER TABLE usuarios ADD COLUMN role TEXT DEFAULT 'ADMIN';"); } catch {}
@@ -192,34 +199,17 @@ const seedInitialData = (db: SQLite.SQLiteDatabase) => {
   const prodCount = db.getFirstSync<{ count: number }>('SELECT count(*) as count FROM produtos');
   if (!prodCount || prodCount.count === 0) {
     const now = new Date().toISOString();
-    const anoAtual = new Date().getFullYear();
 
-    // Produtos Padrão de Água Mineral (Apenas Galão 20L)
+    // Produtos Padrão de Água Mineral (Apenas Galão 20L e Vasilhame inicial com estoque ZERO)
     const produtos = [
-      { id: 'prod-galao-20l', nome: 'Água Mineral 20L', categoria: 'AGUA_20L', preco: 14.0, custo: 6.0, estoque: 50 },
-      { id: 'prod-vasilhame-20l', nome: 'Vasilhame Galão 20L (Vazio)', categoria: 'GARRAFAO_NOVO', preco: 35.0, custo: 25.0, estoque: 30 },
+      { id: 'prod-galao-20l', nome: 'Água Mineral 20L', categoria: 'AGUA_20L', preco: 14.0, custo: 6.0, estoque: 0 },
+      { id: 'prod-vasilhame-20l', nome: 'Vasilhame Galão 20L (Vazio)', categoria: 'GARRAFAO_NOVO', preco: 35.0, custo: 25.0, estoque: 0 },
     ];
 
     for (const p of produtos) {
       db.runSync(
         'INSERT INTO produtos (id, nome, categoria, precoVenda, custo, estoqueAtual, unidade, ativo, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [p.id, p.nome, p.categoria, p.preco, p.custo, p.estoque, 'UN', 1, now]
-      );
-    }
-
-    // Lotes Iniciais ANP (Validade de 3 anos)
-    const garrafoes = [
-      { id: 'gar-01', anoFab: anoAtual, anoVal: anoAtual + 3, qtd: 50, status: 'CHEIO' },
-      { id: 'gar-02', anoFab: anoAtual, anoVal: anoAtual + 3, qtd: 30, status: 'VAZIO' },
-      { id: 'gar-03', anoFab: anoAtual - 1, anoVal: anoAtual + 2, qtd: 20, status: 'CHEIO' },
-      { id: 'gar-04', anoFab: anoAtual - 1, anoVal: anoAtual + 2, qtd: 10, status: 'VAZIO' },
-      { id: 'gar-05', anoFab: anoAtual - 1, anoVal: anoAtual + 2, qtd: 1, status: 'DANIFICADO' },
-    ];
-
-    for (const g of garrafoes) {
-      db.runSync(
-        'INSERT INTO estoque_garrafoes (id, anoFabricacao, anoValidade, quantidade, status, observacoes, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [g.id, g.anoFab, g.anoVal, g.qtd, g.status, 'Lote inicial do sistema', now]
+        [p.id, p.nome, p.categoria, p.preco, p.custo, 0, 'UN', 1, now]
       );
     }
   }

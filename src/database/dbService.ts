@@ -372,6 +372,13 @@ export const ProdutosService = {
 // 3. SERVIÇO DE ESTOQUE E VASILHAMES (OPERAÇÃO REAL)
 // ----------------------------------------------------
 export const EstoqueService = {
+  zerarTodoEstoque(): void {
+    const db = getDatabase();
+    db.runSync('UPDATE produtos SET estoqueAtual = 0');
+    db.runSync('DELETE FROM estoque_garrafoes');
+    db.runSync('DELETE FROM movimentacoes_estoque');
+  },
+
   getGarrafoes(): EstoqueGarrafao[] {
     const db = getDatabase();
     const rows = db.getAllSync<any>('SELECT * FROM estoque_garrafoes ORDER BY status ASC');

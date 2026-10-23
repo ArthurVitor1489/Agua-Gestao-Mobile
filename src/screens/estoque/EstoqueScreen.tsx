@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { EstoqueService, ProdutosService } from '../../database/dbService';
@@ -28,6 +29,7 @@ import {
   Flame,
   CheckCircle2,
   Plus,
+  RotateCcw,
 } from 'lucide-react-native';
 
 export const EstoqueScreen: React.FC = () => {
@@ -70,6 +72,30 @@ export const EstoqueScreen: React.FC = () => {
     setRefreshing(true);
     await HapticService.light();
     carregarEstoque();
+  };
+
+  const handleZerarEstoque = () => {
+    Alert.alert(
+      'Zerar Todo o Estoque',
+      'Tem certeza que deseja zerar todos os saldos de águas, garrafões cheios, vazios e avarias? Essa ação colocará todos os saldos em 0.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sim, Zerar Tudo',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              EstoqueService.zerarTodoEstoque();
+              await HapticService.warning();
+              carregarEstoque();
+              Alert.alert('Sucesso', 'Todo o estoque e vasilhames foram zerados com sucesso!');
+            } catch (err: any) {
+              Alert.alert('Erro', err.message || 'Falha ao zerar estoque.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Resumo de Vasilhames
@@ -148,8 +174,8 @@ export const EstoqueScreen: React.FC = () => {
             }}
             activeOpacity={0.8}
           >
-            <Truck size={18} color="#fff" />
-            <Text style={styles.primaryActionText}>Carga de Fábrica</Text>
+            <Truck size={17} color="#fff" />
+            <Text style={styles.primaryActionText}>Carga Fábrica</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -160,8 +186,17 @@ export const EstoqueScreen: React.FC = () => {
             }}
             activeOpacity={0.8}
           >
-            <AlertTriangle size={18} color={colors.secondary} />
-            <Text style={[styles.secondaryActionText, { color: colors.text }]}>Lançar Avaria / Quebra</Text>
+            <AlertTriangle size={17} color={colors.secondary} />
+            <Text style={[styles.secondaryActionText, { color: colors.text }]}>Lançar Avaria</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.zerarActionBtn, { backgroundColor: colors.surface, borderColor: '#fca5a5' }]}
+            onPress={handleZerarEstoque}
+            activeOpacity={0.8}
+          >
+            <RotateCcw size={15} color={colors.danger} />
+            <Text style={[styles.zerarActionText, { color: colors.danger }]}>Zerar</Text>
           </TouchableOpacity>
         </View>
 
@@ -413,35 +448,49 @@ const styles = StyleSheet.create({
   },
   actionButtonsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     marginBottom: 16,
   },
   primaryActionBtn: {
-    flex: 1,
+    flex: 1.3,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
   },
   primaryActionText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
   },
   secondaryActionBtn: {
-    flex: 1,
+    flex: 1.3,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    gap: 8,
+    gap: 6,
   },
   secondaryActionText: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  zerarActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    gap: 4,
+  },
+  zerarActionText: {
+    fontSize: 12,
     fontWeight: '800',
   },
   kpiGrid: {
