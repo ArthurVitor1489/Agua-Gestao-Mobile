@@ -572,7 +572,7 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
               ) : (
                 <>
                   <Check size={20} color="#fff" />
-                  <Text style={styles.submitBtnText}>Confirmar e Imprimir</Text>
+                  <Text style={styles.submitBtnText}>Confirmar Pedido</Text>
                 </>
               )}
             </TouchableOpacity>

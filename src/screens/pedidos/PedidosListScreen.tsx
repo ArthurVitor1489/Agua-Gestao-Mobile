@@ -357,10 +357,9 @@ export const PedidosListScreen: React.FC = () => {
       <NovoPedidoModal
         visible={showNovoPedidoModal}
         onClose={() => setShowNovoPedidoModal(false)}
-        onSuccess={(novo) => {
+        onSuccess={() => {
           setShowNovoPedidoModal(false);
           carregarPedidos();
-          setSelectedPedidoCupom(novo); // Abre preview do cupom térmico para impressão de imediato!
         }}
       />
 
