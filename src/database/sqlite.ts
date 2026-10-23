@@ -178,6 +178,8 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   try { db.execSync('ALTER TABLE configuracao ADD COLUMN whatsapp TEXT;'); } catch {}
   try { db.execSync('ALTER TABLE configuracao ADD COLUMN telefone TEXT;'); } catch {}
   try { db.execSync('ALTER TABLE clientes ADD COLUMN precosEspeciaisJson TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE movimentacoes_estoque ADD COLUMN produtoNome TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE movimentacoes_estoque ADD COLUMN motivo TEXT;'); } catch {}
 };
 
 const seedInitialData = (db: SQLite.SQLiteDatabase) => {

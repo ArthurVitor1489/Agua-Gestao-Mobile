@@ -437,6 +437,42 @@ export const EstoqueService = {
 
   getMovimentacoes(): MovimentacaoEstoque[] {
     const db = getDatabase();
+
+    // Sincronizar pedidos já gerados que ainda não constavam no extrato
+    try {
+      const pedidosSemMov = db.getAllSync<any>(`
+        SELECT p.id, p.numero, p.data, p.itensJson 
+        FROM pedidos p 
+        WHERE p.status != 'CANCELADO'
+        AND NOT EXISTS (
+          SELECT 1 FROM movimentacoes_estoque m 
+          WHERE m.motivo LIKE '%' || p.numero || '%'
+        )
+      `);
+
+      for (const ped of pedidosSemMov) {
+        const itens: PedidoItem[] = JSON.parse(ped.itensJson || '[]');
+        for (const it of itens) {
+          const prod = db.getFirstSync<any>('SELECT nome FROM produtos WHERE id = ?', [it.produtoId]);
+          const prodNome = it.produto?.nome || prod?.nome || 'Água Mineral';
+          db.runSync(
+            `INSERT INTO movimentacoes_estoque (id, produtoId, produtoNome, tipo, quantidade, motivo, data)
+             VALUES (?, ?, ?, 'SAIDA', ?, ?, ?)`,
+            [
+              generateId(),
+              it.produtoId,
+              prodNome,
+              it.quantidade,
+              `Venda - Pedido #${ped.numero} (${prodNome})`,
+              ped.data,
+            ]
+          );
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao sincronizar pedidos no extrato:', e);
+    }
+
     const rows = db.getAllSync<any>('SELECT * FROM movimentacoes_estoque ORDER BY data DESC LIMIT 200');
     return rows.map((r) => ({
       id: r.id,

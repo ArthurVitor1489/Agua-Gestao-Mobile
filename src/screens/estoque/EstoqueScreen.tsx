@@ -114,6 +114,7 @@ export const EstoqueScreen: React.FC = () => {
           onPress={() => {
             HapticService.light();
             setAbaAtiva('produtos');
+            carregarEstoque();
           }}
         >
           <Text
@@ -131,6 +132,7 @@ export const EstoqueScreen: React.FC = () => {
           onPress={() => {
             HapticService.light();
             setAbaAtiva('auditoria');
+            carregarEstoque();
           }}
         >
           <Text
@@ -306,12 +308,14 @@ export const EstoqueScreen: React.FC = () => {
                     <Icon size={18} color={cor} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.auditMotivo, { color: colors.text }]} numberOfLines={2}>
+                    <Text style={[styles.auditMotivo, { color: colors.text, fontWeight: '700' }]} numberOfLines={2}>
                       {m.motivo || `${m.tipo} de estoque`}
                     </Text>
-                    <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>{dataFormatada}</Text>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                      {m.produto?.nome ? `${m.produto.nome} • ` : ''}{dataFormatada}
+                    </Text>
                   </View>
-                  <Text style={[styles.auditQtd, { color: cor }]}>
+                  <Text style={[styles.auditQtd, { color: cor, fontWeight: '900', fontSize: 16 }]}>
                     {isEntrada ? '+' : '-'}
                     {m.quantidade}
                   </Text>
