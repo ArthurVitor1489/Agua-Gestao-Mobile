@@ -814,6 +814,7 @@ export const PedidosService = {
 
     return rows.map((r) => {
       const itens: PedidoItem[] = JSON.parse(r.itensJson || '[]');
+      const pagamentos = r.pagamentosJson ? JSON.parse(r.pagamentosJson) : undefined;
       return {
         id: r.id,
         empresaId: 'local',
@@ -841,6 +842,7 @@ export const PedidosService = {
         trocoPara: r.trocoPara,
         observacoes: r.observacoes,
         itens,
+        pagamentos,
         createdAt: r.createdAt,
         updatedAt: r.createdAt,
       };
@@ -857,12 +859,17 @@ export const PedidosService = {
     acrescimo?: number;
     observacoes?: string;
     formaPagamento?: FormaPagamento | string;
+    pagamentosMultiplos?: { forma: string; valor: number }[];
     trocoPara?: number;
     data?: string;
   }): Pedido {
     const db = getDatabase();
     const now = payload.data || new Date().toISOString();
     const id = generateId();
+
+    try {
+      db.execSync('ALTER TABLE pedidos ADD COLUMN pagamentosJson TEXT;');
+    } catch {}
 
     // 1. Obter próximo número sequencial de pedido
     const maxRow = db.getFirstSync<{ maxNum: number }>('SELECT MAX(numero) as maxNum FROM pedidos');
@@ -932,12 +939,23 @@ export const PedidosService = {
     const desc = payload.desconto || 0;
     const acres = payload.acrescimo || 0;
     const valorFinal = Math.max(0, total - desc + acres);
-    const formaPag = (payload.formaPagamento || 'DINHEIRO') as FormaPagamento;
+    
+    // Suporte a Pagamento Múltiplo
+    const pagamentosMultiplos = payload.pagamentosMultiplos || [];
+    let formaPag = (payload.formaPagamento || 'DINHEIRO') as string;
+
+    if (pagamentosMultiplos.length > 1) {
+      formaPag = pagamentosMultiplos
+        .map((p) => `${p.forma} (R$ ${p.valor.toFixed(2)})`)
+        .join(' + ');
+    } else if (pagamentosMultiplos.length === 1) {
+      formaPag = pagamentosMultiplos[0].forma;
+    }
 
     // 4. Inserir Pedido
     db.runSync(
-      `INSERT INTO pedidos (id, numero, clienteId, clienteNome, clienteTelefone, clienteEndereco, data, valorTotal, desconto, acrescimo, status, formaPagamento, trocoPara, observacoes, itensJson, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDENTE', ?, ?, ?, ?, ?)`,
+      `INSERT INTO pedidos (id, numero, clienteId, clienteNome, clienteTelefone, clienteEndereco, data, valorTotal, desconto, acrescimo, status, formaPagamento, trocoPara, observacoes, itensJson, pagamentosJson, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDENTE', ?, ?, ?, ?, ?, ?)`,
       [
         id,
         numero,
@@ -953,12 +971,22 @@ export const PedidosService = {
         payload.trocoPara || null,
         payload.observacoes || '',
         JSON.stringify(itensProcessados),
+        JSON.stringify(pagamentosMultiplos),
         now,
       ]
     );
 
-    // 5. Se foi FIADO, lançar automaticamente na Caderneta Digital
-    if (formaPag === 'FIADO') {
+    // 5. Se teve FIADO (integral ou parcial em pagamento múltiplo), lançar na Caderneta Digital
+    if (pagamentosMultiplos.length > 0) {
+      const parteFiado = pagamentosMultiplos.find((p) => p.forma.toUpperCase().includes('FIADO'));
+      if (parteFiado && parteFiado.valor > 0) {
+        db.runSync(
+          `INSERT INTO fiados (id, clienteId, clienteNome, pedidoId, pedidoNumero, valorOriginal, valorPago, saldo, situacao, createdAt, updatedAt)
+           VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'ABERTO', ?, ?)`,
+          [generateId(), payload.clienteId || 'balcao', clienteNome, id, numero, parteFiado.valor, parteFiado.valor, now, now]
+        );
+      }
+    } else if (formaPag === 'FIADO' || formaPag.toUpperCase().includes('FIADO')) {
       db.runSync(
         `INSERT INTO fiados (id, clienteId, clienteNome, pedidoId, pedidoNumero, valorOriginal, valorPago, saldo, situacao, createdAt, updatedAt)
          VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'ABERTO', ?, ?)`,

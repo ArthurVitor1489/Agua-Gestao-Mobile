@@ -58,6 +58,8 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
   const [desconto, setDesconto] = useState('');
   const [acrescimo, setAcrescimo] = useState('');
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('PIX');
+  const [modoPagamento, setModoPagamento] = useState<'UNICO' | 'MULTIPLO'>('UNICO');
+  const [valoresMultiplos, setValoresMultiplos] = useState<Record<string, string>>({});
   const [observacoes, setObservacoes] = useState('');
 
   // Calculadora de Troco (Dinheiro)
@@ -169,7 +171,28 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
   const numAcrescimo = parseFloat(acrescimo.replace(',', '.')) || 0;
   const totalFinal = Math.max(0, subtotal - numDesconto + numAcrescimo);
 
-  // Cálculo de Troco
+  // Cálculos de Pagamento Múltiplo
+  const totalPagoMultiplo = Object.values(valoresMultiplos).reduce((acc, val) => {
+    const n = parseFloat(String(val).replace(',', '.')) || 0;
+    return acc + n;
+  }, 0);
+  const restanteMultiplo = Math.max(0, totalFinal - totalPagoMultiplo);
+
+  const preencherRestante = (formaId: string) => {
+    HapticService.light();
+    const atualOutros = Object.entries(valoresMultiplos).reduce((acc, [k, v]) => {
+      if (k === formaId) return acc;
+      const n = parseFloat(String(v).replace(',', '.')) || 0;
+      return acc + n;
+    }, 0);
+    const sobra = Math.max(0, totalFinal - atualOutros);
+    setValoresMultiplos((prev) => ({
+      ...prev,
+      [formaId]: sobra > 0 ? sobra.toFixed(2).replace('.', ',') : '',
+    }));
+  };
+
+  // Cálculo de Troco (Modo Único - Dinheiro)
   const numRecebido = parseFloat(valorRecebido.replace(',', '.')) || 0;
   const troco = Math.max(0, numRecebido - totalFinal);
 
@@ -182,6 +205,35 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
     if (itensValidos.length === 0) {
       Alert.alert('Atenção', 'Digite a quantidade de pelo menos 1 produto no pedido.');
       return;
+    }
+
+    // Validação de Pagamento Múltiplo
+    let payloadFormaPag: FormaPagamento | string = formaPagamento;
+    let pagamentosMultiplosPayload: { forma: string; valor: number }[] | undefined = undefined;
+
+    if (modoPagamento === 'MULTIPLO') {
+      const lista = Object.entries(valoresMultiplos)
+        .map(([forma, strVal]) => ({
+          forma,
+          valor: parseFloat(String(strVal).replace(',', '.')) || 0,
+        }))
+        .filter((p) => p.valor > 0);
+
+      if (lista.length === 0) {
+        Alert.alert('Atenção', 'Informe o valor em pelo menos uma forma de pagamento.');
+        return;
+      }
+
+      const soma = lista.reduce((acc, p) => acc + p.valor, 0);
+      if (Math.abs(soma - totalFinal) > 0.05) {
+        Alert.alert(
+          'Valor Incompleto',
+          `A soma das formas de pagamento (R$ ${soma.toFixed(2)}) deve ser igual ao total do pedido (R$ ${totalFinal.toFixed(2)}).`
+        );
+        return;
+      }
+
+      pagamentosMultiplosPayload = lista;
     }
 
     try {
@@ -197,7 +249,8 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
         })),
         desconto: numDesconto,
         acrescimo: numAcrescimo,
-        formaPagamento,
+        formaPagamento: payloadFormaPag,
+        pagamentosMultiplos: pagamentosMultiplosPayload,
         observacoes: observacoes.trim() || undefined,
       };
 
@@ -210,6 +263,8 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
       setDesconto('');
       setAcrescimo('');
       setValorRecebido('');
+      setModoPagamento('UNICO');
+      setValoresMultiplos({});
       setObservacoes('');
 
       onSuccess(novoPedido);
@@ -463,73 +518,234 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
               </View>
             )}
 
-            {/* 4. Forma de Pagamento */}
-            <Text style={[styles.sectionLabel, { color: colors.text, marginTop: 18 }]}>
-              3. Forma de Pagamento
-            </Text>
-            <View style={styles.paymentMethodsGrid}>
-              {[
-                { id: 'PIX', label: 'PIX', icon: QrCode },
-                { id: 'DINHEIRO', label: 'Dinheiro', icon: DollarSign },
-                { id: 'DEBITO', label: 'Débito', icon: CreditCard },
-                { id: 'CREDITO', label: 'Crédito', icon: CreditCard },
-                { id: 'FIADO', label: 'Fiado (Caderneta)', icon: BookOpen },
-                { id: 'BOLETO', label: 'Boleto', icon: Calendar },
-              ].map((m) => {
-                const isSelected = formaPagamento === m.id;
-                const Icon = m.icon;
-                return (
-                  <TouchableOpacity
-                    key={m.id}
+            {/* 3. Forma de Pagamento */}
+            <View style={styles.paymentSectionHeader}>
+              <Text style={[styles.sectionLabel, { color: colors.text, marginBottom: 0 }]}>
+                3. Forma de Pagamento
+              </Text>
+
+              {/* Botões alternadores: 1 Forma vs Dividir Pagamento */}
+              <View style={[styles.paymentModeToggle, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <TouchableOpacity
+                  style={[
+                    styles.paymentModeBtn,
+                    modoPagamento === 'UNICO' && { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => {
+                    HapticService.light();
+                    setModoPagamento('UNICO');
+                  }}
+                >
+                  <Text
                     style={[
-                      styles.paymentBtn,
-                      {
-                        backgroundColor: isSelected ? colors.primary : colors.surface,
-                        borderColor: isSelected ? colors.primary : colors.border,
-                      },
+                      styles.paymentModeBtnText,
+                      { color: modoPagamento === 'UNICO' ? '#fff' : colors.textMuted },
                     ]}
-                    onPress={() => {
-                      HapticService.light();
-                      setFormaPagamento(m.id as FormaPagamento);
-                    }}
                   >
-                    <Icon size={16} color={isSelected ? '#fff' : colors.textMuted} />
-                    <Text
-                      style={[
-                        styles.paymentBtnText,
-                        { color: isSelected ? '#fff' : colors.text, fontWeight: isSelected ? '800' : '600' },
-                      ]}
-                    >
-                      {m.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                    1 Forma
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.paymentModeBtn,
+                    modoPagamento === 'MULTIPLO' && { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => {
+                    HapticService.light();
+                    setModoPagamento('MULTIPLO');
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.paymentModeBtnText,
+                      { color: modoPagamento === 'MULTIPLO' ? '#fff' : colors.textMuted },
+                    ]}
+                  >
+                    Dividir Pagamento
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
-            {/* Calculadora de Troco Automática quando selecionado Dinheiro */}
-            {formaPagamento === 'DINHEIRO' && (
-              <View style={[styles.trocoBox, { backgroundColor: '#e0f2fe', borderColor: '#38bdf8' }]}>
-                <Text style={{ color: '#0369a1', fontWeight: '800', fontSize: 13 }}>
-                  Cálculo de Troco Automático
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 11, color: '#0369a1' }}>Valor Recebido (R$)</Text>
-                    <TextInput
-                      style={[styles.trocoInput, { backgroundColor: '#fff', color: '#0f172a' }]}
-                      keyboardType="numeric"
-                      placeholder={`Ex: ${(totalFinal + 10).toFixed(2)}`}
-                      value={valorRecebido}
-                      onChangeText={setValorRecebido}
-                    />
+            {/* MODO 1: PAGAMENTO ÚNICO */}
+            {modoPagamento === 'UNICO' && (
+              <>
+                <View style={styles.paymentMethodsGrid}>
+                  {[
+                    { id: 'PIX', label: 'PIX', icon: QrCode },
+                    { id: 'DINHEIRO', label: 'Dinheiro', icon: DollarSign },
+                    { id: 'DEBITO', label: 'Débito', icon: CreditCard },
+                    { id: 'CREDITO', label: 'Crédito', icon: CreditCard },
+                    { id: 'FIADO', label: 'Fiado (Caderneta)', icon: BookOpen },
+                    { id: 'BOLETO', label: 'Boleto', icon: Calendar },
+                  ].map((m) => {
+                    const isSelected = formaPagamento === m.id;
+                    const Icon = m.icon;
+                    return (
+                      <TouchableOpacity
+                        key={m.id}
+                        style={[
+                          styles.paymentBtn,
+                          {
+                            backgroundColor: isSelected ? colors.primary : colors.surface,
+                            borderColor: isSelected ? colors.primary : colors.border,
+                          },
+                        ]}
+                        onPress={() => {
+                          HapticService.light();
+                          setFormaPagamento(m.id as FormaPagamento);
+                        }}
+                      >
+                        <Icon size={16} color={isSelected ? '#fff' : colors.textMuted} />
+                        <Text
+                          style={[
+                            styles.paymentBtnText,
+                            { color: isSelected ? '#fff' : colors.text, fontWeight: isSelected ? '800' : '600' },
+                          ]}
+                        >
+                          {m.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Calculadora de Troco Automática quando selecionado Dinheiro */}
+                {formaPagamento === 'DINHEIRO' && (
+                  <View style={[styles.trocoBox, { backgroundColor: '#e0f2fe', borderColor: '#38bdf8' }]}>
+                    <Text style={{ color: '#0369a1', fontWeight: '800', fontSize: 13 }}>
+                      Cálculo de Troco Automático
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 11, color: '#0369a1' }}>Valor Recebido (R$)</Text>
+                        <TextInput
+                          style={[styles.trocoInput, { backgroundColor: '#fff', color: '#0f172a' }]}
+                          keyboardType="numeric"
+                          placeholder={`Ex: ${(totalFinal + 10).toFixed(2)}`}
+                          value={valorRecebido}
+                          onChangeText={setValorRecebido}
+                        />
+                      </View>
+                      <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                        <Text style={{ fontSize: 11, color: '#0369a1' }}>Troco a Devolver:</Text>
+                        <Text style={{ fontSize: 20, fontWeight: '900', color: '#0284c7' }}>
+                          R$ {troco.toFixed(2)}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
-                  <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                    <Text style={{ fontSize: 11, color: '#0369a1' }}>Troco a Devolver:</Text>
-                    <Text style={{ fontSize: 20, fontWeight: '900', color: '#0284c7' }}>
-                      R$ {troco.toFixed(2)}
+                )}
+              </>
+            )}
+
+            {/* MODO 2: PAGAMENTO MÚLTIPLO (DIVIDIDO ENTRE 2 OU MAIS FORMAS) */}
+            {modoPagamento === 'MULTIPLO' && (
+              <View style={[styles.multiploCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 10 }}>
+                  Informe os valores recebidos em cada forma (ex: parte em Dinheiro e parte no PIX ou Fiado):
+                </Text>
+
+                {[
+                  { id: 'DINHEIRO', label: 'Dinheiro', icon: DollarSign },
+                  { id: 'PIX', label: 'PIX', icon: QrCode },
+                  { id: 'DEBITO', label: 'Débito', icon: CreditCard },
+                  { id: 'CREDITO', label: 'Crédito', icon: CreditCard },
+                  { id: 'FIADO', label: 'Fiado (Caderneta)', icon: BookOpen },
+                  { id: 'BOLETO', label: 'Boleto', icon: Calendar },
+                ].map((m) => {
+                  const Icon = m.icon;
+                  const valorDigitado = valoresMultiplos[m.id] || '';
+                  const numVal = parseFloat(valorDigitado.replace(',', '.')) || 0;
+                  const isPreenchido = numVal > 0;
+
+                  return (
+                    <View
+                      key={m.id}
+                      style={[
+                        styles.multiploRow,
+                        {
+                          backgroundColor: isPreenchido ? colors.primaryLight : colors.card,
+                          borderColor: isPreenchido ? colors.primary : colors.border,
+                        },
+                      ]}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                        <Icon size={17} color={isPreenchido ? colors.primary : colors.textMuted} />
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }}>
+                          {m.label}
+                        </Text>
+                      </View>
+
+                      {/* Botão de auto-preenchimento do restante */}
+                      {restanteMultiplo > 0 && !isPreenchido && (
+                        <TouchableOpacity
+                          style={[styles.preencherBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
+                          onPress={() => preencherRestante(m.id)}
+                        >
+                          <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>
+                            + R$ {restanteMultiplo.toFixed(2)}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
+                      <TextInput
+                        style={[
+                          styles.multiploInput,
+                          {
+                            backgroundColor: colors.surface,
+                            color: colors.text,
+                            borderColor: isPreenchido ? colors.primary : colors.border,
+                          },
+                        ]}
+                        keyboardType="numeric"
+                        placeholder="0,00"
+                        placeholderTextColor={colors.textMuted}
+                        value={valorDigitado}
+                        onChangeText={(t) =>
+                          setValoresMultiplos((prev) => ({
+                            ...prev,
+                            [m.id]: t,
+                          }))
+                        }
+                      />
+                    </View>
+                  );
+                })}
+
+                {/* Resumo do Total Dividido */}
+                <View
+                  style={[
+                    styles.multiploStatusBox,
+                    Math.abs(totalPagoMultiplo - totalFinal) <= 0.05
+                      ? { backgroundColor: '#dcfce7', borderColor: '#86efac' }
+                      : totalPagoMultiplo < totalFinal
+                      ? { backgroundColor: '#fef3c7', borderColor: '#fde047' }
+                      : { backgroundColor: '#fee2e2', borderColor: '#fca5a5' },
+                  ]}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#1e293b' }}>
+                      Total Informado:
+                    </Text>
+                    <Text style={{ fontSize: 14, fontWeight: '900', color: '#1e293b' }}>
+                      R$ {totalPagoMultiplo.toFixed(2)} de R$ {totalFinal.toFixed(2)}
                     </Text>
                   </View>
+                  {Math.abs(totalPagoMultiplo - totalFinal) <= 0.05 ? (
+                    <Text style={{ fontSize: 11, color: '#15803d', fontWeight: '800', marginTop: 3 }}>
+                      ✅ Valor total coberto com sucesso!
+                    </Text>
+                  ) : totalPagoMultiplo < totalFinal ? (
+                    <Text style={{ fontSize: 11, color: '#b45309', fontWeight: '800', marginTop: 3 }}>
+                      ⚠️ Falta cobrir: R$ {(totalFinal - totalPagoMultiplo).toFixed(2)}
+                    </Text>
+                  ) : (
+                    <Text style={{ fontSize: 11, color: '#b91c1c', fontWeight: '800', marginTop: 3 }}>
+                      ⚠️ Ultrapassou o total em R$ {(totalPagoMultiplo - totalFinal).toFixed(2)}
+                    </Text>
+                  )}
                 </View>
               </View>
             )}
@@ -765,6 +981,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  paymentSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 18,
+    marginBottom: 8,
+  },
+  paymentModeToggle: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 2,
+  },
+  paymentModeBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  paymentModeBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
   paymentMethodsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -782,6 +1020,44 @@ const styles = StyleSheet.create({
   },
   paymentBtnText: {
     fontSize: 13,
+  },
+  multiploCard: {
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 8,
+  },
+  multiploRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 8,
+  },
+  preencherBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  multiploInput: {
+    width: 90,
+    height: 38,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '800',
+    paddingHorizontal: 6,
+  },
+  multiploStatusBox: {
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 4,
   },
   trocoBox: {
     marginTop: 10,
