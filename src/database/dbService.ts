@@ -848,6 +848,63 @@ export const ClientesService = {
 
     return oportunidades.sort((a, b) => b.diasAtraso - a.diasAtraso);
   },
+
+  criarDadoTesteRecompra(): void {
+    const db = getDatabase();
+    const clienteId = 'cli-teste-recompra';
+    const now = new Date();
+    const dataAntiga = new Date();
+    dataAntiga.setDate(now.getDate() - 18); // 18 dias atrás
+
+    // 1. Criar ou atualizar cliente de teste
+    db.runSync(
+      `INSERT INTO clientes (id, nome, cpfCnpj, telefone, whatsapp, logradouro, numero, bairro, cidade, estado, pontoReferencia, latitude, longitude, ativo, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+       ON CONFLICT(id) DO UPDATE SET nome = excluded.nome, whatsapp = excluded.whatsapp, telefone = excluded.telefone;`,
+      [
+        clienteId,
+        'Dona Maria (Teste Recompra)',
+        '000.000.000-00',
+        '83999999999',
+        '83999999999',
+        'Rua das Palmeiras',
+        '250',
+        'Centro',
+        'João Pessoa',
+        'PB',
+        'Em frente ao mercado',
+        null,
+        null,
+        dataAntiga.toISOString(),
+      ]
+    );
+
+    // 2. Criar pedido com data de 18 dias atrás
+    const pedId = 'ped-teste-recompra';
+    db.runSync(
+      `INSERT INTO pedidos (id, numero, clienteId, clienteNome, clienteTelefone, clienteEndereco, data, valorTotal, desconto, acrescimo, status, formaPagamento, itensJson, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 'ENTREGUE', 'PIX', ?, ?)
+       ON CONFLICT(id) DO UPDATE SET data = excluded.data;`,
+      [
+        pedId,
+        9999,
+        clienteId,
+        'Dona Maria (Teste Recompra)',
+        '83999999999',
+        'Rua das Palmeiras, 250 - Centro',
+        dataAntiga.toISOString(),
+        28.0,
+        JSON.stringify([{ produtoId: 'prod-galao-20l', nome: 'Água Mineral 20L', quantidade: 2, valorUnitario: 14.0, subtotal: 28.0 }]),
+        dataAntiga.toISOString(),
+      ]
+    );
+  },
+
+  removerDadoTesteRecompra(): void {
+    const db = getDatabase();
+    db.runSync("DELETE FROM pedidos WHERE id = 'ped-teste-recompra'");
+    db.runSync("DELETE FROM clientes WHERE id = 'cli-teste-recompra'");
+  },
 };
 
 // ----------------------------------------------------
