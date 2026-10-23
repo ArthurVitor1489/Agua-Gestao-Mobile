@@ -8,6 +8,9 @@ export interface SupabaseConfig {
   isConfigured: boolean;
 }
 
+const DEFAULT_SUPABASE_URL = 'https://owphqcljfztrduhmbmrh.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'sb_publishable_6gPw8vyAn_AIWrf7y_Ga5A_wYU2xyPs';
+
 let cachedClient: SupabaseClient | null = null;
 let cachedConfigKey = '';
 
@@ -52,10 +55,10 @@ export const SupabaseClientService = {
     }
 
     return {
-      url: 'https://owphqcljfztrduhmbmrh.supabase.co',
-      anonKey: '',
+      url: DEFAULT_SUPABASE_URL,
+      anonKey: DEFAULT_SUPABASE_KEY,
       lastSyncAt: null,
-      isConfigured: false,
+      isConfigured: true,
     };
   },
 
@@ -146,8 +149,12 @@ export const SupabaseClientService = {
       const { error } = await tempClient.from('produtos').select('id').limit(1);
 
       if (error) {
-        // Se der erro de tabela inexistente (42P01), a conexão foi aceita pelo Supabase, mas falta rodar o SQL
-        if (error.code === '42P01' || error.message?.includes('relation "public.produtos" does not exist')) {
+        // Se der erro de tabela inexistente, a conexão foi aceita pelo Supabase, mas falta rodar o SQL
+        if (
+          error.code === '42P01' ||
+          error.message?.includes('relation "public.produtos" does not exist') ||
+          error.message?.includes('Could not find the table')
+        ) {
           return {
             success: true,
             message: 'Conectado com sucesso ao Supabase! Porém as tabelas ainda não foram criadas. Clique em "Copiar Script SQL" e execute-o no SQL Editor do Supabase.',
