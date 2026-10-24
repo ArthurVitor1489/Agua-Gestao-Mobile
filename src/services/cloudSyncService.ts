@@ -1,3 +1,4 @@
+import { AppState, AppStateStatus } from 'react-native';
 import { getDatabase } from '../database/sqlite';
 import { SupabaseClientService } from './supabaseClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -12,6 +13,10 @@ export interface SyncResult {
 
 let activeChannel: RealtimeChannel | null = null;
 let isSyncing = false;
+let debounceTimer: any = null;
+let periodicInterval: any = null;
+let appStateSubscription: any = null;
+let isAutoMonitoringStarted = false;
 let syncListeners: ((status: 'syncing' | 'idle' | 'success' | 'error', message?: string) => void)[] = [];
 
 export const CloudSyncService = {
@@ -37,6 +42,98 @@ export const CloudSyncService = {
 
   isCurrentlySyncing(): boolean {
     return isSyncing;
+  },
+
+  /**
+   * Agenda uma sincronização em segundo plano após um pequeno atraso (debounce).
+   * Chamado automaticamente após criar pedidos, clientes, produtos, despesas, etc.
+   */
+  agendarSincronizacaoEmSegundoPlano(delayMs: number = 2500): void {
+    const config = SupabaseClientService.getConfig();
+    if (!config.isConfigured) return;
+
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      this.sincronizarTudoSilencioso();
+    }, delayMs);
+  },
+
+  /**
+   * Sincronização silenciosa em segundo plano (não gera alerts invasivos na UI)
+   */
+  async sincronizarTudoSilencioso(): Promise<SyncResult> {
+    if (isSyncing) {
+      return {
+        success: false,
+        pushed: 0,
+        pulled: 0,
+        message: 'Sincronização já em execução.',
+        timestamp: new Date().toISOString(),
+      };
+    }
+    return this.sincronizarTudo();
+  },
+
+  /**
+   * Inicia o monitoramento inteligente de segundo plano:
+   * 1. Sincroniza ao abrir o app / retornar do WhatsApp ou segundo plano
+   * 2. Sincroniza a cada 3 minutos periodicamente
+   * 3. Conecta aos canais Realtime do Supabase
+   */
+  iniciarMonitoramentoAutomatico(): () => void {
+    if (isAutoMonitoringStarted) {
+      return () => this.pararMonitoramentoAutomatico();
+    }
+
+    isAutoMonitoringStarted = true;
+
+    // 1. Iniciar Realtime se configurado
+    this.iniciarRealtime();
+
+    // 2. Sincronização inicial rápida
+    this.agendarSincronizacaoEmSegundoPlano(1500);
+
+    // 3. Monitor de estado do aplicativo (quando usuário volta pro app)
+    appStateSubscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        console.log('[CloudSync] App retornou ao primeiro plano. Sincronizando com a nuvem...');
+        this.agendarSincronizacaoEmSegundoPlano(1000);
+      }
+    });
+
+    // 4. Timer periódico a cada 3 minutos (180.000 ms)
+    periodicInterval = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        console.log('[CloudSync] Sincronização periódica automática...');
+        this.sincronizarTudoSilencioso();
+      }
+    }, 180000);
+
+    return () => this.pararMonitoramentoAutomatico();
+  },
+
+  /**
+   * Encerra o monitoramento de segundo plano
+   */
+  pararMonitoramentoAutomatico(): void {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+    if (periodicInterval) {
+      clearInterval(periodicInterval);
+      periodicInterval = null;
+    }
+    if (appStateSubscription) {
+      appStateSubscription.remove();
+      appStateSubscription = null;
+    }
+    this.pararRealtime();
+    isAutoMonitoringStarted = false;
   },
 
   /**
@@ -349,7 +446,7 @@ export const CloudSyncService = {
       // Atualiza timestamp da sincronização
       SupabaseClientService.updateLastSyncTime(now);
 
-      const msg = `Sincronização concluída com sucesso! (${totalPushed} enviados, ${totalPulled} recebidos)`;
+      const msg = `Sincronização concluída! (${totalPushed} enviados, ${totalPulled} recebidos)`;
       this.notifyListeners('success', msg);
 
       // Inicia Realtime se ainda não estiver ativo
@@ -363,7 +460,7 @@ export const CloudSyncService = {
         timestamp: now,
       };
     } catch (err: any) {
-      console.error('Erro na sincronização:', err);
+      console.warn('[CloudSync] Aviso durante sincronização:', err?.message || err);
       const errMsg = err?.message || 'Falha ao sincronizar com a nuvem.';
       this.notifyListeners('error', errMsg);
       return {
@@ -379,7 +476,7 @@ export const CloudSyncService = {
   },
 
   /**
-   * Conecta ao canal Realtime do Supabase para receber alterações instantâneas
+   * Conecta aos canais Realtime do Supabase para receber alterações instantâneas de pedidos, produtos e clientes
    */
   iniciarRealtime(): void {
     const supabase = SupabaseClientService.getClient();
@@ -387,12 +484,12 @@ export const CloudSyncService = {
 
     try {
       activeChannel = supabase
-        .channel('agua-gestao-realtime')
+        .channel('agua-gestao-realtime-channel')
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'pedidos' },
           (payload) => {
-            console.log('Realtime Pedidos:', payload.eventType);
+            console.log('[Realtime] Pedido recebido:', payload.eventType);
             const db = getDatabase();
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
               const p: any = payload.new;
@@ -425,6 +522,78 @@ export const CloudSyncService = {
                   );
                 } catch (e) {
                   console.warn('Realtime pedido insert error:', e);
+                }
+              }
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'produtos' },
+          (payload) => {
+            console.log('[Realtime] Produto recebido:', payload.eventType);
+            const db = getDatabase();
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+              const p: any = payload.new;
+              if (p && p.id) {
+                try {
+                  db.runSync(
+                    `INSERT INTO produtos (id, nome, categoria, precoVenda, custo, estoqueAtual, unidade, ativo, createdAt)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON CONFLICT(id) DO UPDATE SET
+                       nome = excluded.nome,
+                       categoria = excluded.categoria,
+                       precoVenda = excluded.precoVenda,
+                       custo = excluded.custo,
+                       estoqueAtual = excluded.estoqueAtual,
+                       unidade = excluded.unidade,
+                       ativo = excluded.ativo;`,
+                    [p.id, p.nome, p.categoria, p.precoVenda, p.custo ?? 0, p.estoqueAtual ?? 0, p.unidade ?? 'UN', p.ativo ?? 1, p.createdAt || new Date().toISOString()]
+                  );
+                } catch (e) {
+                  console.warn('Realtime produto update error:', e);
+                }
+              }
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'clientes' },
+          (payload) => {
+            console.log('[Realtime] Cliente recebido:', payload.eventType);
+            const db = getDatabase();
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+              const c: any = payload.new;
+              if (c && c.id) {
+                try {
+                  db.runSync(
+                    `INSERT INTO clientes (id, nome, cpfCnpj, telefone, whatsapp, logradouro, numero, bairro, cidade, estado, pontoReferencia, latitude, longitude, ativo, precosEspeciaisJson, createdAt)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON CONFLICT(id) DO UPDATE SET
+                       nome = excluded.nome,
+                       cpfCnpj = excluded.cpfCnpj,
+                       telefone = excluded.telefone,
+                       whatsapp = excluded.whatsapp,
+                       logradouro = excluded.logradouro,
+                       numero = excluded.numero,
+                       bairro = excluded.bairro,
+                       cidade = excluded.cidade,
+                       estado = excluded.estado,
+                       pontoReferencia = excluded.pontoReferencia,
+                       latitude = excluded.latitude,
+                       longitude = excluded.longitude,
+                       ativo = excluded.ativo,
+                       precosEspeciaisJson = excluded.precosEspeciaisJson;`,
+                    [
+                      c.id, c.nome, c.cpfCnpj || null, c.telefone || null, c.whatsapp || null,
+                      c.logradouro || null, c.numero || null, c.bairro || null, c.cidade || null, c.estado || null,
+                      c.pontoReferencia || null, c.latitude ?? null, c.longitude ?? null, c.ativo ?? 1,
+                      c.precosEspeciaisJson || null, c.createdAt || new Date().toISOString()
+                    ]
+                  );
+                } catch (e) {
+                  console.warn('Realtime cliente update error:', e);
                 }
               }
             }

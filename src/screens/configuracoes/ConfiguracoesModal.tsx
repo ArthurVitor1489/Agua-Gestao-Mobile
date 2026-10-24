@@ -629,6 +629,33 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
                     </>
                   )}
                 </TouchableOpacity>
+
+                {/* Badge de Sincronização em Segundo Plano Ativa */}
+                {statusConexaoNuvem === 'conectado' && (
+                  <View
+                    style={{
+                      backgroundColor: '#ecfdf5',
+                      borderRadius: 10,
+                      padding: 10,
+                      marginTop: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                      borderWidth: 1,
+                      borderColor: '#a7f3d0',
+                    }}
+                  >
+                    <Sparkles size={16} color="#059669" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: '#065f46' }}>
+                        Sincronização em 2º Plano Ativa
+                      </Text>
+                      <Text style={{ fontSize: 11, color: '#047857', marginTop: 1, lineHeight: 15 }}>
+                        O app sincroniza automaticamente a cada 3 min, ao reabrir e 2s após cada venda, despesa ou cliente cadastrado.
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </View>
 
               {/* Guia Rápido de Configuração */}

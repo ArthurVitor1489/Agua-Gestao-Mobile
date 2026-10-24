@@ -1,5 +1,6 @@
 import { getDatabase } from './sqlite';
 import { CloudAdminService } from '../services/cloudAdminService';
+import { CloudSyncService } from '../services/cloudSyncService';
 import {
   User,
   Cliente,
@@ -298,6 +299,7 @@ export const ConfigService = {
           existing.id,
         ]
       );
+      CloudSyncService.agendarSincronizacaoEmSegundoPlano();
       return this.getConfig()!;
     } else {
       const newId = generateId();
@@ -316,6 +318,7 @@ export const ConfigService = {
           now,
         ]
       );
+      CloudSyncService.agendarSincronizacaoEmSegundoPlano();
       return this.getConfig()!;
     }
   },
@@ -375,12 +378,14 @@ export const ProdutosService = {
         [id, p.nome, p.categoria || 'OUTROS', p.precoVenda, 0, p.estoque?.quantidadeAtual || 0, now]
       );
     }
+    CloudSyncService.agendarSincronizacaoEmSegundoPlano();
     return this.getProdutos().find((x) => x.id === id)!;
   },
 
   excluirProduto(id: string): void {
     const db = getDatabase();
     db.runSync('UPDATE produtos SET ativo = 0 WHERE id = ?', [id]);
+    CloudSyncService.agendarSincronizacaoEmSegundoPlano();
   },
 };
 
@@ -561,6 +566,7 @@ export const EstoqueService = {
        VALUES (?, ?, ?, 'ENTRADA', ?, ?, ?)`,
       [generateId(), params.produtoId, prodNome, params.qtdCheiosRecebidos, motivoTexto, now]
     );
+    CloudSyncService.agendarSincronizacaoEmSegundoPlano();
   },
 
   // Mantido para compatibilidade com chamadas legadas
@@ -648,6 +654,7 @@ export const EstoqueService = {
        VALUES (?, ?, ?, 'SAIDA', ?, ?, ?)`,
       [generateId(), targetProdutoId || null, nomeProd, params.quantidade, motivoAudit, now]
     );
+    CloudSyncService.agendarSincronizacaoEmSegundoPlano();
   },
 
   // Mantido para compatibilidade com chamadas antigas
@@ -785,12 +792,14 @@ export const ClientesService = {
       );
     }
 
+    CloudSyncService.agendarSincronizacaoEmSegundoPlano();
     return this.getClientes().find((x) => x.id === id)!;
   },
 
   excluirCliente(id: string): void {
     const db = getDatabase();
     db.runSync('UPDATE clientes SET ativo = 0 WHERE id = ?', [id]);
+    CloudSyncService.agendarSincronizacaoEmSegundoPlano();
   },
 
   getRecompraOportunidades(): RecompraOportunidade[] {
@@ -1117,12 +1126,14 @@ export const PedidosService = {
       );
     }
 
+    CloudSyncService.agendarSincronizacaoEmSegundoPlano();
     return this.getPedidos().find((p) => p.id === id)!;
   },
 
   atualizarStatus(id: string, status: StatusPedido): void {
     const db = getDatabase();
     db.runSync('UPDATE pedidos SET status = ? WHERE id = ?', [status, id]);
+    CloudSyncService.agendarSincronizacaoEmSegundoPlano();
   },
 
   cancelarPedido(id: string): void {
@@ -1151,6 +1162,7 @@ export const PedidosService = {
 
     // Marcar como cancelado
     db.runSync('UPDATE pedidos SET status = ? WHERE id = ?', ['CANCELADO', id]);
+    CloudSyncService.agendarSincronizacaoEmSegundoPlano();
   },
 };
 
@@ -1201,6 +1213,7 @@ export const FinanceiroService = {
       'UPDATE fiados SET valorPago = ?, saldo = ?, situacao = ?, updatedAt = ? WHERE id = ?',
       [novoPago, novoSaldo, novaSituacao, now, fiadoId]
     );
+    CloudSyncService.agendarSincronizacaoEmSegundoPlano();
   },
 
   getDespesas(): Despesa[] {
@@ -1229,6 +1242,8 @@ export const FinanceiroService = {
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [id, d.descricao, d.categoria, d.valor, now, d.formaPagamento, now]
     );
+
+    CloudSyncService.agendarSincronizacaoEmSegundoPlano();
 
     return {
       id,
