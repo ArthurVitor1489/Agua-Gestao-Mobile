@@ -29,6 +29,9 @@ export const SupabaseClientService = {
           lastSyncAt TEXT
         );
       `);
+      try {
+        db.execSync('ALTER TABLE admin_cloud_config ADD COLUMN lastSyncAt TEXT;');
+      } catch {}
     } catch (e) {
       console.warn('Erro ao criar tabela admin_cloud_config:', e);
     }

@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { getDatabase } from '../database/sqlite';
-import { ConfigService } from '../database/dbService';
 
 export interface DistribuidoraCliente {
   id: string;
@@ -243,12 +242,12 @@ export const CloudAdminService = {
       );
 
       // Se for a distribuidora instalada neste aparelho, atualiza imediatamente as permissões
-      const cfg = ConfigService.getConfig();
+      const cfg = db.getFirstSync<any>('SELECT * FROM configuracao LIMIT 1');
       if (cfg) {
         if (novoStatus === 'ATIVO') {
-          ConfigService.activateSubscription('ANUAL');
+          db.runSync("UPDATE configuracao SET isSubscribed = 1, plano = 'ANUAL' WHERE id = ?", [cfg.id]);
         } else if (novoStatus === 'BLOQUEADO') {
-          db.runSync("UPDATE configuracao SET isSubscribed = 0, trialStartDate = '2020-01-01'");
+          db.runSync("UPDATE configuracao SET isSubscribed = 0, trialStartDate = '2020-01-01' WHERE id = ?", [cfg.id]);
         }
       }
 

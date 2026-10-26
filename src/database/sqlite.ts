@@ -181,6 +181,7 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   try { db.execSync('ALTER TABLE movimentacoes_estoque ADD COLUMN produtoNome TEXT;'); } catch {}
   try { db.execSync('ALTER TABLE movimentacoes_estoque ADD COLUMN motivo TEXT;'); } catch {}
   try { db.execSync('ALTER TABLE pedidos ADD COLUMN pagamentosJson TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE admin_cloud_config ADD COLUMN lastSyncAt TEXT;'); } catch {}
 
   // Auto-cura de fiados: vincula pedidos marcados como FIADO à tabela fiados se ainda não existirem
   try {
