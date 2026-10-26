@@ -189,23 +189,12 @@ export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =
                 <Cylinder size={20} color={colors.secondary} />
                 <Text style={[styles.gridTitle, { color: colors.text }]}>Vasilhames</Text>
               </View>
-              <View style={styles.vasilhamesStats}>
-                <View>
-                  <Text style={[styles.gridSmallNum, { color: colors.success }]}>
-                    {data?.garrafoesCheios || 0}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: colors.textMuted }}>Cheios</Text>
-                </View>
-                <View style={{ borderLeftWidth: 1, borderColor: colors.border, height: 26 }} />
-                <View>
-                  <Text style={[styles.gridSmallNum, { color: colors.textMuted }]}>
-                    {data?.garrafoesVazios || 0}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: colors.textMuted }}>Vazios</Text>
-                </View>
-              </View>
+              <Text style={[styles.gridBigNum, { color: colors.success }]}>
+                {data?.garrafoesCheios || 0}
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.textMuted }}>Cheios</Text>
               {Boolean((data?.garrafoesDanificados || 0) > 0) && (
-                <Text style={{ color: colors.danger, fontSize: 11, fontWeight: '700', marginTop: 4 }}>
+                <Text style={{ color: colors.danger, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
                   {data?.garrafoesDanificados} avarias/descarte
                 </Text>
               )}
