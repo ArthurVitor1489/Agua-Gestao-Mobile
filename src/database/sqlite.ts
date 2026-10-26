@@ -163,6 +163,22 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
     );
   `);
 
+  // 9. Tabela de Quitações / Histórico de Recebimentos de Fiados
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS quitacoes_fiado (
+      id TEXT PRIMARY KEY,
+      fiadoId TEXT NOT NULL,
+      pedidoId TEXT,
+      clienteId TEXT,
+      clienteNome TEXT,
+      valor REAL NOT NULL,
+      formaPagamento TEXT NOT NULL,
+      data TEXT NOT NULL,
+      observacoes TEXT,
+      createdAt TEXT NOT NULL
+    );
+  `);
+
   // Seed Inicial Automático
   seedInitialData(db);
 
@@ -182,6 +198,25 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   try { db.execSync('ALTER TABLE movimentacoes_estoque ADD COLUMN motivo TEXT;'); } catch {}
   try { db.execSync('ALTER TABLE pedidos ADD COLUMN pagamentosJson TEXT;'); } catch {}
   try { db.execSync('ALTER TABLE admin_cloud_config ADD COLUMN lastSyncAt TEXT;'); } catch {}
+
+  // Migração segura para registrar quitações anteriores caso o usuário já tivesse quitado fiados no app
+  try {
+    const fiadosPagosSemHistorico = db.getAllSync<any>(`
+      SELECT f.id, f.clienteId, f.clienteNome, f.pedidoId, f.valorPago, f.updatedAt, f.createdAt
+      FROM fiados f
+      WHERE f.valorPago > 0
+        AND f.id NOT IN (SELECT fiadoId FROM quitacoes_fiado)
+    `);
+    for (const f of fiadosPagosSemHistorico) {
+      db.runSync(
+        `INSERT INTO quitacoes_fiado (id, fiadoId, pedidoId, clienteId, clienteNome, valor, formaPagamento, data, observacoes, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, 'DINHEIRO', ?, 'Quitação anterior migrada', ?)`,
+        ['mig-' + f.id, f.id, f.pedidoId, f.clienteId, f.clienteNome, f.valorPago, f.updatedAt || f.createdAt, f.updatedAt || f.createdAt]
+      );
+    }
+  } catch (e) {
+    console.warn('Erro ao migrar histórico de fiados:', e);
+  }
 
   // Auto-cura de fiados: vincula pedidos marcados como FIADO à tabela fiados se ainda não existirem
   try {

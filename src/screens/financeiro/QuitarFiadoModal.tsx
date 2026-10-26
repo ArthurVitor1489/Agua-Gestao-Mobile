@@ -58,7 +58,7 @@ export const QuitarFiadoModal: React.FC<QuitarFiadoModalProps> = ({
     try {
       setSubmitting(true);
       await HapticService.medium();
-      FinanceiroService.quitarFiado(fiado.id, val);
+      FinanceiroService.quitarFiado(fiado.id, val, formaPagamento, observacoes);
       await HapticService.success();
       onSuccess();
     } catch (e: any) {

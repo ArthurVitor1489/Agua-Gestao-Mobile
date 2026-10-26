@@ -313,6 +313,21 @@ CREATE TABLE IF NOT EXISTS public.movimentacoes_estoque (
   updatedAt TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
+-- 9. Tabela de Quitações de Fiados (Recebimentos)
+CREATE TABLE IF NOT EXISTS public.quitacoes_fiado (
+  id TEXT PRIMARY KEY,
+  fiadoId TEXT NOT NULL,
+  pedidoId TEXT,
+  clienteId TEXT,
+  clienteNome TEXT,
+  valor NUMERIC(10, 2) NOT NULL,
+  formaPagamento TEXT NOT NULL,
+  data TEXT NOT NULL,
+  observacoes TEXT,
+  createdAt TEXT,
+  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
 -- ==============================================================================
 -- POLÍTICAS DE ACESSO (Row Level Security - RLS)
 -- Permite leitura e gravação automática usando a chave anon pública do seu app
@@ -325,6 +340,7 @@ ALTER TABLE public.pedidos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fiados ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.despesas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.movimentacoes_estoque ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quitacoes_fiado ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Acesso Anon configuracao" ON public.configuracao;
 CREATE POLICY "Acesso Anon configuracao" ON public.configuracao FOR ALL USING (true) WITH CHECK (true);
@@ -350,11 +366,15 @@ CREATE POLICY "Acesso Anon despesas" ON public.despesas FOR ALL USING (true) WIT
 DROP POLICY IF EXISTS "Acesso Anon movimentacoes_estoque" ON public.movimentacoes_estoque;
 CREATE POLICY "Acesso Anon movimentacoes_estoque" ON public.movimentacoes_estoque FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Acesso Anon quitacoes_fiado" ON public.quitacoes_fiado;
+CREATE POLICY "Acesso Anon quitacoes_fiado" ON public.quitacoes_fiado FOR ALL USING (true) WITH CHECK (true);
+
 -- Ativar Supabase Realtime para tabelas chave
 ALTER PUBLICATION supabase_realtime ADD TABLE public.pedidos;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.produtos;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.clientes;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.fiados;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.quitacoes_fiado;
 `;
   },
 };

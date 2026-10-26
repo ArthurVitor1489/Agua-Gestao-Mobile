@@ -1173,6 +1173,24 @@ export const FinanceiroService = {
   getFiados(): Fiado[] {
     const db = getDatabase();
     const rows = db.getAllSync<any>("SELECT * FROM fiados WHERE situacao != 'QUITADO' ORDER BY createdAt DESC");
+    
+    // Buscar histórico de quitações
+    const quitacoesPorFiado: Record<string, any[]> = {};
+    try {
+      const quitacoesRows = db.getAllSync<any>('SELECT * FROM quitacoes_fiado ORDER BY data DESC');
+      for (const q of quitacoesRows) {
+        if (!quitacoesPorFiado[q.fiadoId]) quitacoesPorFiado[q.fiadoId] = [];
+        quitacoesPorFiado[q.fiadoId].push({
+          id: q.id,
+          fiadoId: q.fiadoId,
+          valorPago: q.valor,
+          formaPagamento: q.formaPagamento,
+          dataPagamento: q.data,
+          observacoes: q.observacoes,
+        });
+      }
+    } catch {}
+
     return rows.map((r) => ({
       id: r.id,
       empresaId: 'local',
@@ -1196,23 +1214,54 @@ export const FinanceiroService = {
       situacao: r.situacao,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
+      historico: quitacoesPorFiado[r.id] || [],
     }));
   },
 
-  quitarFiado(fiadoId: string, valorPago: number): void {
+  quitarFiado(
+    fiadoId: string,
+    valorPago: number,
+    formaPagamento: FormaPagamento = 'PIX',
+    observacoes?: string
+  ): void {
     const db = getDatabase();
     const f = db.getFirstSync<any>('SELECT * FROM fiados WHERE id = ?', [fiadoId]);
     if (!f) return;
 
-    const novoPago = f.valorPago + valorPago;
-    const novoSaldo = Math.max(0, f.valorOriginal - novoPago);
+    const novoPago = (f.valorPago || 0) + valorPago;
+    const novoSaldo = Math.max(0, (f.valorOriginal || 0) - novoPago);
     const novaSituacao = novoSaldo === 0 ? 'QUITADO' : 'PARCIAL';
     const now = new Date().toISOString();
 
+    // 1. Registrar histórico da quitação com a forma de pagamento selecionada
+    const quitacaoId = generateId();
+    try {
+      db.runSync(
+        `INSERT INTO quitacoes_fiado (id, fiadoId, pedidoId, clienteId, clienteNome, valor, formaPagamento, data, observacoes, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          quitacaoId,
+          fiadoId,
+          f.pedidoId || null,
+          f.clienteId || 'balcao',
+          f.clienteNome || 'Cliente',
+          valorPago,
+          formaPagamento,
+          now,
+          observacoes || null,
+          now,
+        ]
+      );
+    } catch (e) {
+      console.warn('Erro ao inserir em quitacoes_fiado:', e);
+    }
+
+    // 2. Atualizar saldo do fiado
     db.runSync(
       'UPDATE fiados SET valorPago = ?, saldo = ?, situacao = ?, updatedAt = ? WHERE id = ?',
       [novoPago, novoSaldo, novaSituacao, now, fiadoId]
     );
+
     CloudSyncService.agendarSincronizacaoEmSegundoPlano();
   },
 
@@ -1327,28 +1376,51 @@ export const FinanceiroService = {
           mesesMap[chave] = { faturamento: 0, recebido: 0, emAberto: 0, despesas: 0, totalPedidos: 0, totalGaloes: 0 };
         }
         mesesMap[chave].faturamento += p.valorTotal || 0;
-        
-        let pendente = 0;
-        let pago = 0;
+        mesesMap[chave].totalPedidos += 1;
 
-        if (fiadosPorPedido[p.id]) {
-          pendente = fiadosPorPedido[p.id].saldo;
-          pago = Math.max(0, (p.valorTotal || 0) - pendente);
-        } else {
-          const isFiado = p.formaPagamento === 'FIADO' || String(p.formaPagamento).toUpperCase().includes('FIADO');
-          if (isFiado) {
-            pendente = p.valorTotal || 0;
-            pago = 0;
-          } else {
-            pendente = 0;
-            pago = p.valorTotal || 0;
+        // Extrair pagamentos do pedido
+        let pagamentos: Array<{ forma: string; valor: number }> = [];
+        if (p.pagamentosJson) {
+          try {
+            const list = JSON.parse(p.pagamentosJson);
+            if (Array.isArray(list) && list.length > 0) {
+              pagamentos = list.map((item: any) => ({
+                forma: item.forma,
+                valor: typeof item.valor === 'number' ? item.valor : parseFloat(item.valor) || 0,
+              }));
+            }
+          } catch {}
+        }
+
+        if (pagamentos.length === 0) {
+          const str = String(p.formaPagamento || '');
+          if (str.includes('+') && (str.includes('R$') || str.includes('('))) {
+            const regex = /([A-Za-zÀ-ÖØ-öø-ÿ]+)\s*\(\s*R\$\s*([\d\.,]+)\s*\)/g;
+            let match;
+            while ((match = regex.exec(str)) !== null) {
+              const val = parseFloat(match[2].replace(',', '.'));
+              if (!isNaN(val) && val > 0) {
+                pagamentos.push({ forma: match[1], valor: val });
+              }
+            }
           }
         }
 
-        mesesMap[chave].emAberto += pendente;
-        mesesMap[chave].recebido += pago;
+        if (pagamentos.length === 0) {
+          pagamentos = [{ forma: p.formaPagamento || 'OUTROS', valor: p.valorTotal || 0 }];
+        }
 
-        mesesMap[chave].totalPedidos += 1;
+        for (const item of pagamentos) {
+          const isFiado = item.forma.toUpperCase().includes('FIADO');
+          if (isFiado) {
+            const saldoPendente = fiadosPorPedido[p.id] !== undefined
+              ? fiadosPorPedido[p.id].saldo
+              : item.valor;
+            mesesMap[chave].emAberto += saldoPendente;
+          } else {
+            mesesMap[chave].recebido += item.valor;
+          }
+        }
 
         try {
           const itens = JSON.parse(p.itensJson || '[]');
@@ -1357,6 +1429,18 @@ export const FinanceiroService = {
           }
         } catch {}
       }
+
+      // Adicionar quitações de fiados no mês em que o cliente realmente pagou
+      try {
+        const quitacoesRows = db.getAllSync<any>('SELECT data, valor FROM quitacoes_fiado');
+        for (const q of quitacoesRows) {
+          if (!q.data) continue;
+          const chave = q.data.substring(0, 7);
+          if (mesesMap[chave]) {
+            mesesMap[chave].recebido += q.valor || 0;
+          }
+        }
+      } catch {}
     } catch (e) {
       console.warn('Erro ao totalizar vendas mensais:', e);
     }
@@ -1483,69 +1567,57 @@ export const DashboardService = {
         faturamento += p.valorTotal;
         pedidosRealizados++;
 
-        let pendente = 0;
-        let pago = 0;
+        // 1. Extrair formas de pagamento deste pedido
+        let pagamentos: Array<{ forma: string; valor: number }> = [];
 
-        if (fiadosPorPedido[p.id]) {
-          pendente = fiadosPorPedido[p.id].saldo;
-          pago = Math.max(0, p.valorTotal - pendente);
-        } else {
-          const isFiado = p.formaPagamento === 'FIADO' || String(p.formaPagamento).toUpperCase().includes('FIADO');
-          if (isFiado) {
-            pendente = p.valorTotal;
-            pago = 0;
-          } else {
-            pendente = 0;
-            pago = p.valorTotal;
-          }
-        }
-
-        emAberto += pendente;
-        recebido += pago;
-
-        // Formas de Pagamento (separando pagamentos múltiplos em suas respectivas categorias)
-        let processouMultiplos = false;
-
-        // 1. Verificar pagamentosJson gravado no pedido
         if (p.pagamentosJson) {
           try {
             const list = JSON.parse(p.pagamentosJson);
             if (Array.isArray(list) && list.length > 0) {
-              for (const item of list) {
-                const val = typeof item.valor === 'number' ? item.valor : parseFloat(item.valor);
-                if (item.forma && !isNaN(val) && val > 0) {
-                  somarNaForma(item.forma, val);
-                }
-              }
-              processouMultiplos = true;
+              pagamentos = list.map((item: any) => ({
+                forma: item.forma,
+                valor: typeof item.valor === 'number' ? item.valor : parseFloat(item.valor) || 0,
+              }));
             }
           } catch {}
         }
 
-        // 2. Se não tinha JSON mas a string formaPagamento contém múltiplos meios (ex: "DINHEIRO (R$ 40.00) + PIX (R$ 20.00)")
-        if (!processouMultiplos) {
+        if (pagamentos.length === 0) {
           const str = String(p.formaPagamento || '');
           if (str.includes('+') && (str.includes('R$') || str.includes('('))) {
             const regex = /([A-Za-zÀ-ÖØ-öø-ÿ]+)\s*\(\s*R\$\s*([\d\.,]+)\s*\)/g;
             let match;
-            let encontrou = false;
             while ((match = regex.exec(str)) !== null) {
-              const formaNome = match[1];
               const val = parseFloat(match[2].replace(',', '.'));
               if (!isNaN(val) && val > 0) {
-                somarNaForma(formaNome, val);
-                encontrou = true;
+                pagamentos.push({ forma: match[1], valor: val });
               }
-            }
-            if (encontrou) {
-              processouMultiplos = true;
             }
           }
         }
 
-        // 3. Pagamento simples padrão
-        if (!processouMultiplos) {
-          somarNaForma(p.formaPagamento || 'OUTROS', p.valorTotal || 0);
+        if (pagamentos.length === 0) {
+          pagamentos = [{ forma: p.formaPagamento || 'OUTROS', valor: p.valorTotal || 0 }];
+        }
+
+        // 2. Somar cada meio de pagamento
+        for (const item of pagamentos) {
+          const formaNorm = normalizarNomeForma(item.forma);
+          if (formaNorm === 'FIADO') {
+            // Se for fiado, o valor pendente no fiado é o saldo devedor atual
+            const saldoPendente = fiadosPorPedido[p.id] !== undefined
+              ? fiadosPorPedido[p.id].saldo
+              : item.valor;
+
+            if (saldoPendente > 0) {
+              somarNaForma('FIADO', saldoPendente);
+              emAberto += saldoPendente;
+            }
+          } else {
+            // Pagamentos imediatos à vista (PIX, Dinheiro, Débito, Crédito, etc.)
+            somarNaForma(item.forma, item.valor);
+            recebido += item.valor;
+          }
         }
       }
 
@@ -1554,6 +1626,23 @@ export const DashboardService = {
       }
 
       statusMap[p.status] = (statusMap[p.status] || 0) + 1;
+    }
+
+    // 2. Quitações e amortizações de fiados recebidas no período
+    // O dinheiro sai do FIADO e entra no meio de pagamento que o cliente usou (PIX, Dinheiro, etc.)
+    try {
+      const quitacoesRows = db.getAllSync<any>(
+        'SELECT valor, formaPagamento FROM quitacoes_fiado WHERE data >= ?',
+        [dataCorteIso]
+      );
+      for (const q of quitacoesRows) {
+        if (q.valor > 0) {
+          somarNaForma(q.formaPagamento, q.valor);
+          recebido += q.valor;
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao processar quitacoes_fiado no dashboard:', e);
     }
 
     // 2. Despesas do período

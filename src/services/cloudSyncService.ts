@@ -263,6 +263,17 @@ export const CloudSyncService = {
         console.warn('Sync push movimentacoes_estoque:', err);
       }
 
+      // 1.9 Quitações de Fiados
+      try {
+        const quitacoes = db.getAllSync<any>('SELECT * FROM quitacoes_fiado');
+        if (quitacoes.length > 0) {
+          const { error } = await supabase.from('quitacoes_fiado').upsert(quitacoes, { onConflict: 'id' });
+          if (!error) totalPushed += quitacoes.length;
+        }
+      } catch (err) {
+        console.warn('Sync push quitacoes_fiado:', err);
+      }
+
       // ---------------------------------------------------------
       // 2. PULL: Baixar dados atualizados da Nuvem para o SQLite
       // ---------------------------------------------------------
@@ -441,6 +452,28 @@ export const CloudSyncService = {
         }
       } catch (err) {
         console.warn('Sync pull estoque_garrafoes:', err);
+      }
+
+      // 2.7 Quitações de Fiados da Nuvem
+      try {
+        const { data: cloudQuitacoes, error: qErr } = await supabase.from('quitacoes_fiado').select('*');
+        if (!qErr && cloudQuitacoes && cloudQuitacoes.length > 0) {
+          for (const q of cloudQuitacoes) {
+            db.runSync(
+              `INSERT INTO quitacoes_fiado (id, fiadoId, pedidoId, clienteId, clienteNome, valor, formaPagamento, data, observacoes, createdAt)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(id) DO UPDATE SET
+                 valor = excluded.valor,
+                 formaPagamento = excluded.formaPagamento,
+                 data = excluded.data,
+                 observacoes = excluded.observacoes;`,
+              [q.id, q.fiadoId, q.pedidoId || null, q.clienteId || 'balcao', q.clienteNome || 'Cliente', q.valor, q.formaPagamento, q.data, q.observacoes || null, q.createdAt || q.data || now]
+            );
+            totalPulled++;
+          }
+        }
+      } catch (err) {
+        console.warn('Sync pull quitacoes_fiado:', err);
       }
 
       // Atualiza timestamp da sincronização
