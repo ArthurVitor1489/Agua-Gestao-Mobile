@@ -193,6 +193,7 @@ export const SupabaseClientService = {
 -- 1. Tabela de Configuração da Distribuidora
 CREATE TABLE IF NOT EXISTS public.configuracao (
   id TEXT PRIMARY KEY,
+  empresaId TEXT,
   nomeDistribuidora TEXT NOT NULL,
   telefone TEXT,
   whatsapp TEXT,
@@ -209,6 +210,7 @@ CREATE TABLE IF NOT EXISTS public.configuracao (
 -- 2. Tabela de Produtos
 CREATE TABLE IF NOT EXISTS public.produtos (
   id TEXT PRIMARY KEY,
+  empresaId TEXT,
   nome TEXT NOT NULL,
   categoria TEXT NOT NULL,
   precoVenda NUMERIC(10, 2) NOT NULL,
@@ -223,6 +225,7 @@ CREATE TABLE IF NOT EXISTS public.produtos (
 -- 3. Tabela de Estoque de Garrafões (Regra ANP)
 CREATE TABLE IF NOT EXISTS public.estoque_garrafoes (
   id TEXT PRIMARY KEY,
+  empresaId TEXT,
   anoFabricacao INTEGER NOT NULL,
   anoValidade INTEGER NOT NULL,
   quantidade INTEGER NOT NULL,
@@ -235,6 +238,7 @@ CREATE TABLE IF NOT EXISTS public.estoque_garrafoes (
 -- 4. Tabela de Clientes
 CREATE TABLE IF NOT EXISTS public.clientes (
   id TEXT PRIMARY KEY,
+  empresaId TEXT,
   nome TEXT NOT NULL,
   cpfCnpj TEXT,
   telefone TEXT,
@@ -256,6 +260,7 @@ CREATE TABLE IF NOT EXISTS public.clientes (
 -- 5. Tabela de Pedidos
 CREATE TABLE IF NOT EXISTS public.pedidos (
   id TEXT PRIMARY KEY,
+  empresaId TEXT,
   numero INTEGER NOT NULL,
   clienteId TEXT,
   clienteNome TEXT NOT NULL,
@@ -277,6 +282,7 @@ CREATE TABLE IF NOT EXISTS public.pedidos (
 -- 6. Tabela de Fiados (Caderneta Digital)
 CREATE TABLE IF NOT EXISTS public.fiados (
   id TEXT PRIMARY KEY,
+  empresaId TEXT,
   clienteId TEXT NOT NULL,
   clienteNome TEXT NOT NULL,
   pedidoId TEXT,
@@ -292,6 +298,7 @@ CREATE TABLE IF NOT EXISTS public.fiados (
 -- 7. Tabela de Despesas Operacionais
 CREATE TABLE IF NOT EXISTS public.despesas (
   id TEXT PRIMARY KEY,
+  empresaId TEXT,
   descricao TEXT NOT NULL,
   categoria TEXT NOT NULL,
   valor NUMERIC(10, 2) NOT NULL,
@@ -304,6 +311,7 @@ CREATE TABLE IF NOT EXISTS public.despesas (
 -- 8. Tabela de Movimentações de Estoque (Auditoria)
 CREATE TABLE IF NOT EXISTS public.movimentacoes_estoque (
   id TEXT PRIMARY KEY,
+  empresaId TEXT,
   produtoId TEXT,
   produtoNome TEXT NOT NULL,
   tipo TEXT NOT NULL,
@@ -316,6 +324,7 @@ CREATE TABLE IF NOT EXISTS public.movimentacoes_estoque (
 -- 9. Tabela de Quitações de Fiados (Recebimentos)
 CREATE TABLE IF NOT EXISTS public.quitacoes_fiado (
   id TEXT PRIMARY KEY,
+  empresaId TEXT,
   fiadoId TEXT NOT NULL,
   pedidoId TEXT,
   clienteId TEXT,
@@ -327,6 +336,24 @@ CREATE TABLE IF NOT EXISTS public.quitacoes_fiado (
   createdAt TEXT,
   updatedAt TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
+
+-- Migrações seguras de empresaId caso o banco já existisse no Supabase
+ALTER TABLE public.configuracao ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
+ALTER TABLE public.produtos ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
+ALTER TABLE public.estoque_garrafoes ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
+ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
+ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
+ALTER TABLE public.fiados ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
+ALTER TABLE public.despesas ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
+ALTER TABLE public.movimentacoes_estoque ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
+ALTER TABLE public.quitacoes_fiado ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
+
+-- Índices de Alta Performance por Empresa (Multi-tenant)
+CREATE INDEX IF NOT EXISTS idx_pedidos_empresa ON public.pedidos("empresaId");
+CREATE INDEX IF NOT EXISTS idx_clientes_empresa ON public.clientes("empresaId");
+CREATE INDEX IF NOT EXISTS idx_produtos_empresa ON public.produtos("empresaId");
+CREATE INDEX IF NOT EXISTS idx_fiados_empresa ON public.fiados("empresaId");
+CREATE INDEX IF NOT EXISTS idx_quitacoes_empresa ON public.quitacoes_fiado("empresaId");
 
 -- ==============================================================================
 -- POLÍTICAS DE ACESSO (Row Level Security - RLS)

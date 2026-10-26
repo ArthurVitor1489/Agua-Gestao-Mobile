@@ -20,6 +20,7 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   db.execSync(`
     CREATE TABLE IF NOT EXISTS configuracao (
       id TEXT PRIMARY KEY,
+      empresaId TEXT,
       nomeDistribuidora TEXT NOT NULL,
       telefone TEXT,
       whatsapp TEXT,
@@ -37,11 +38,11 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   db.execSync(`
     CREATE TABLE IF NOT EXISTS usuarios (
       id TEXT PRIMARY KEY,
+      empresaId TEXT,
       nome TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL,
       senha TEXT NOT NULL,
       role TEXT DEFAULT 'ADMIN',
-      empresaId TEXT,
       empresaNome TEXT,
       ativo INTEGER DEFAULT 1,
       createdAt TEXT NOT NULL
@@ -52,6 +53,7 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   db.execSync(`
     CREATE TABLE IF NOT EXISTS produtos (
       id TEXT PRIMARY KEY,
+      empresaId TEXT,
       nome TEXT NOT NULL,
       categoria TEXT NOT NULL,
       precoVenda REAL NOT NULL,
@@ -67,6 +69,7 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   db.execSync(`
     CREATE TABLE IF NOT EXISTS estoque_garrafoes (
       id TEXT PRIMARY KEY,
+      empresaId TEXT,
       anoFabricacao INTEGER NOT NULL,
       anoValidade INTEGER NOT NULL,
       quantidade INTEGER NOT NULL,
@@ -80,6 +83,7 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   db.execSync(`
     CREATE TABLE IF NOT EXISTS clientes (
       id TEXT PRIMARY KEY,
+      empresaId TEXT,
       nome TEXT NOT NULL,
       cpfCnpj TEXT,
       telefone TEXT,
@@ -102,6 +106,7 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   db.execSync(`
     CREATE TABLE IF NOT EXISTS pedidos (
       id TEXT PRIMARY KEY,
+      empresaId TEXT,
       numero INTEGER NOT NULL,
       clienteId TEXT,
       clienteNome TEXT NOT NULL,
@@ -124,6 +129,7 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   db.execSync(`
     CREATE TABLE IF NOT EXISTS fiados (
       id TEXT PRIMARY KEY,
+      empresaId TEXT,
       clienteId TEXT NOT NULL,
       clienteNome TEXT NOT NULL,
       pedidoId TEXT,
@@ -141,6 +147,7 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   db.execSync(`
     CREATE TABLE IF NOT EXISTS despesas (
       id TEXT PRIMARY KEY,
+      empresaId TEXT,
       descricao TEXT NOT NULL,
       categoria TEXT NOT NULL,
       valor REAL NOT NULL,
@@ -154,6 +161,7 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   db.execSync(`
     CREATE TABLE IF NOT EXISTS movimentacoes_estoque (
       id TEXT PRIMARY KEY,
+      empresaId TEXT,
       produtoId TEXT,
       produtoNome TEXT NOT NULL,
       tipo TEXT NOT NULL,
@@ -167,6 +175,7 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   db.execSync(`
     CREATE TABLE IF NOT EXISTS quitacoes_fiado (
       id TEXT PRIMARY KEY,
+      empresaId TEXT,
       fiadoId TEXT NOT NULL,
       pedidoId TEXT,
       clienteId TEXT,
@@ -198,6 +207,47 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
   try { db.execSync('ALTER TABLE movimentacoes_estoque ADD COLUMN motivo TEXT;'); } catch {}
   try { db.execSync('ALTER TABLE pedidos ADD COLUMN pagamentosJson TEXT;'); } catch {}
   try { db.execSync('ALTER TABLE admin_cloud_config ADD COLUMN lastSyncAt TEXT;'); } catch {}
+
+  // Migrações seguras de empresaId (Isolamento Estrito Multi-tenant)
+  try { db.execSync('ALTER TABLE configuracao ADD COLUMN empresaId TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE produtos ADD COLUMN empresaId TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE estoque_garrafoes ADD COLUMN empresaId TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE clientes ADD COLUMN empresaId TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE pedidos ADD COLUMN empresaId TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE fiados ADD COLUMN empresaId TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE quitacoes_fiado ADD COLUMN empresaId TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE despesas ADD COLUMN empresaId TEXT;'); } catch {}
+  try { db.execSync('ALTER TABLE movimentacoes_estoque ADD COLUMN empresaId TEXT;'); } catch {}
+
+  // Garantir empresaId único para este tenant local e backfill defensivo
+  try {
+    let currentEmpresaId: string | null = null;
+    const cfg = db.getFirstSync<any>('SELECT empresaId FROM configuracao LIMIT 1');
+    if (cfg?.empresaId && cfg.empresaId !== 'local') {
+      currentEmpresaId = cfg.empresaId;
+    } else {
+      currentEmpresaId = 'emp-' + Math.random().toString(36).slice(2, 9) + '-' + Date.now().toString(36);
+      try {
+        db.runSync('UPDATE configuracao SET empresaId = ?', [currentEmpresaId]);
+      } catch {}
+      try {
+        db.runSync('UPDATE usuarios SET empresaId = ? WHERE empresaId IS NULL OR empresaId = "local"', [currentEmpresaId]);
+      } catch {}
+    }
+
+    if (currentEmpresaId) {
+      db.runSync('UPDATE produtos SET empresaId = ? WHERE empresaId IS NULL OR empresaId = "local"', [currentEmpresaId]);
+      db.runSync('UPDATE estoque_garrafoes SET empresaId = ? WHERE empresaId IS NULL OR empresaId = "local"', [currentEmpresaId]);
+      db.runSync('UPDATE clientes SET empresaId = ? WHERE empresaId IS NULL OR empresaId = "local"', [currentEmpresaId]);
+      db.runSync('UPDATE pedidos SET empresaId = ? WHERE empresaId IS NULL OR empresaId = "local"', [currentEmpresaId]);
+      db.runSync('UPDATE fiados SET empresaId = ? WHERE empresaId IS NULL OR empresaId = "local"', [currentEmpresaId]);
+      db.runSync('UPDATE quitacoes_fiado SET empresaId = ? WHERE empresaId IS NULL OR empresaId = "local"', [currentEmpresaId]);
+      db.runSync('UPDATE despesas SET empresaId = ? WHERE empresaId IS NULL OR empresaId = "local"', [currentEmpresaId]);
+      db.runSync('UPDATE movimentacoes_estoque SET empresaId = ? WHERE empresaId IS NULL OR empresaId = "local"', [currentEmpresaId]);
+    }
+  } catch (e) {
+    console.warn('Erro ao configurar empresaId multi-tenant:', e);
+  }
 
   // Migração segura para registrar quitações anteriores caso o usuário já tivesse quitado fiados no app
   try {

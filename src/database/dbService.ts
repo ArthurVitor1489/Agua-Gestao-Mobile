@@ -70,6 +70,7 @@ export const LocalAuthService = {
     try { db.execSync("ALTER TABLE usuarios ADD COLUMN role TEXT DEFAULT 'ADMIN';"); } catch {}
 
     const emailNorm = payload.email.toLowerCase().trim();
+    const empresaId = 'emp-' + Math.random().toString(36).slice(2, 9) + '-' + Date.now().toString(36);
 
     // 1. Verificar se já existe conta com esse e-mail
     const existing = db.getFirstSync<any>('SELECT id FROM usuarios WHERE email = ?', [emailNorm]);
@@ -77,9 +78,10 @@ export const LocalAuthService = {
       throw new Error('Já existe uma conta com este e-mail. Faça login ou utilize outro e-mail.');
     }
 
-    // 2. Salvar configuração da distribuidora (ativa os 14 dias de teste)
+    // 2. Salvar configuração da distribuidora com seu empresaId único
     try {
       ConfigService.saveConfig({
+        empresaId,
         nomeDistribuidora: payload.nomeDistribuidora,
         whatsapp: payload.whatsapp || '',
         cidade: payload.cidade || '',
@@ -89,11 +91,11 @@ export const LocalAuthService = {
       console.warn('Erro ao salvar configuração inicial:', e);
     }
 
-    // 3. Inserir usuário no banco
+    // 3. Inserir usuário no banco vinculado à empresa
     db.runSync(
       `INSERT INTO usuarios (id, nome, email, senha, role, empresaId, empresaNome, ativo, createdAt)
-       VALUES (?, ?, ?, ?, 'ADMIN', 'local', ?, 1, ?)`,
-      [id, payload.nome, emailNorm, payload.senha, payload.nomeDistribuidora, now]
+       VALUES (?, ?, ?, ?, 'ADMIN', ?, ?, 1, ?)`,
+      [id, payload.nome, emailNorm, payload.senha, empresaId, payload.nomeDistribuidora, now]
     );
 
     // 4. Registrar no painel Super Admin (nuvem e cache local)
@@ -112,13 +114,13 @@ export const LocalAuthService = {
 
     return {
       id,
-      empresaId: 'local',
+      empresaId,
       nome: payload.nome,
       email: emailNorm,
       role: 'EMPRESA_ADMIN',
       ativo: true,
       empresa: {
-        id: 'local',
+        id: empresaId,
         nome: payload.nomeDistribuidora,
         cidade: payload.cidade,
         estado: payload.estado,
@@ -233,6 +235,29 @@ export const LocalAuthService = {
 // 1. SERVIÇO DE CONFIGURAÇÃO & ASSINATURA (PLAY STORE)
 // ----------------------------------------------------
 export const ConfigService = {
+  getActiveEmpresaId(): string {
+    const db = getDatabase();
+    try {
+      const row = db.getFirstSync<any>('SELECT empresaId FROM configuracao LIMIT 1');
+      if (row?.empresaId && row.empresaId !== 'local') {
+        return row.empresaId;
+      }
+      const user = db.getFirstSync<any>('SELECT empresaId FROM usuarios WHERE empresaId IS NOT NULL AND empresaId != "local" LIMIT 1');
+      if (user?.empresaId) {
+        return user.empresaId;
+      }
+    } catch {}
+
+    const newId = 'emp-' + Math.random().toString(36).slice(2, 9) + '-' + Date.now().toString(36);
+    try {
+      db.runSync('UPDATE configuracao SET empresaId = ?', [newId]);
+    } catch {}
+    try {
+      db.runSync('UPDATE usuarios SET empresaId = ? WHERE empresaId IS NULL OR empresaId = "local"', [newId]);
+    } catch {}
+    return newId;
+  },
+
   getConfig(): AppConfig | null {
     try {
       const db = getDatabase();
@@ -255,6 +280,7 @@ export const ConfigService = {
     chavePix?: string;
     cidade?: string;
     estado?: string;
+    empresaId?: string;
   }): AppConfig {
     const db = getDatabase();
 
@@ -262,6 +288,7 @@ export const ConfigService = {
     db.execSync(`
       CREATE TABLE IF NOT EXISTS configuracao (
         id TEXT PRIMARY KEY,
+        empresaId TEXT,
         nomeDistribuidora TEXT NOT NULL,
         telefone TEXT,
         whatsapp TEXT,
@@ -274,6 +301,7 @@ export const ConfigService = {
         createdAt TEXT NOT NULL
       );
     `);
+    try { db.execSync('ALTER TABLE configuracao ADD COLUMN empresaId TEXT;'); } catch {}
     try { db.execSync('ALTER TABLE configuracao ADD COLUMN trialStartDate TEXT;'); } catch {}
     try { db.execSync('ALTER TABLE configuracao ADD COLUMN isSubscribed INTEGER DEFAULT 0;'); } catch {}
     try { db.execSync("ALTER TABLE configuracao ADD COLUMN plano TEXT DEFAULT 'TRIAL_14_DIAS';"); } catch {}
@@ -285,10 +313,11 @@ export const ConfigService = {
 
     const existing = this.getConfig();
     const now = new Date().toISOString();
+    const targetEmpresaId = data.empresaId || (existing as any)?.empresaId || this.getActiveEmpresaId();
 
     if (existing) {
       db.runSync(
-        `UPDATE configuracao SET nomeDistribuidora = ?, telefone = ?, whatsapp = ?, chavePix = ?, cidade = ?, estado = ? WHERE id = ?`,
+        `UPDATE configuracao SET nomeDistribuidora = ?, telefone = ?, whatsapp = ?, chavePix = ?, cidade = ?, estado = ?, empresaId = ? WHERE id = ?`,
         [
           data.nomeDistribuidora,
           data.telefone || '',
@@ -296,6 +325,7 @@ export const ConfigService = {
           data.chavePix || '',
           data.cidade || '',
           data.estado || '',
+          targetEmpresaId,
           existing.id,
         ]
       );
@@ -304,10 +334,11 @@ export const ConfigService = {
     } else {
       const newId = generateId();
       db.runSync(
-        `INSERT INTO configuracao (id, nomeDistribuidora, telefone, whatsapp, chavePix, cidade, estado, trialStartDate, isSubscribed, plano, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'TRIAL_14_DIAS', ?)`,
+        `INSERT INTO configuracao (id, empresaId, nomeDistribuidora, telefone, whatsapp, chavePix, cidade, estado, trialStartDate, isSubscribed, plano, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'TRIAL_14_DIAS', ?)`,
         [
           newId,
+          targetEmpresaId,
           data.nomeDistribuidora,
           data.telefone || '',
           data.whatsapp || '',
@@ -341,9 +372,10 @@ export const ProdutosService = {
   getProdutos(): Produto[] {
     const db = getDatabase();
     const rows = db.getAllSync<any>('SELECT * FROM produtos WHERE ativo = 1 ORDER BY nome ASC');
+    const tenantId = ConfigService.getActiveEmpresaId();
     return rows.map((r) => ({
       id: r.id,
-      empresaId: 'local',
+      empresaId: r.empresaId || tenantId,
       nome: r.nome,
       categoria: r.categoria,
       unidade: r.unidade || 'UN',
@@ -365,6 +397,7 @@ export const ProdutosService = {
     const db = getDatabase();
     const now = new Date().toISOString();
     const id = p.id || generateId();
+    const tenantId = ConfigService.getActiveEmpresaId();
 
     if (p.id) {
       db.runSync(
@@ -373,9 +406,9 @@ export const ProdutosService = {
       );
     } else {
       db.runSync(
-        `INSERT INTO produtos (id, nome, categoria, precoVenda, custo, estoqueAtual, unidade, ativo, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, 'UN', 1, ?)`,
-        [id, p.nome, p.categoria || 'OUTROS', p.precoVenda, 0, p.estoque?.quantidadeAtual || 0, now]
+        `INSERT INTO produtos (id, empresaId, nome, categoria, precoVenda, custo, estoqueAtual, unidade, ativo, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'UN', 1, ?)`,
+        [id, tenantId, p.nome, p.categoria || 'OUTROS', p.precoVenda, 0, p.estoque?.quantidadeAtual || 0, now]
       );
     }
     CloudSyncService.agendarSincronizacaoEmSegundoPlano();
@@ -403,9 +436,10 @@ export const EstoqueService = {
   getGarrafoes(): EstoqueGarrafao[] {
     const db = getDatabase();
     const rows = db.getAllSync<any>('SELECT * FROM estoque_garrafoes ORDER BY status ASC');
+    const tenantId = ConfigService.getActiveEmpresaId();
     return rows.map((r) => ({
       id: r.id,
-      empresaId: 'local',
+      empresaId: r.empresaId || tenantId,
       anoFabricacao: r.anoFabricacao || 2024,
       anoValidade: r.anoValidade || 2027,
       quantidade: r.quantidade,
@@ -512,6 +546,7 @@ export const EstoqueService = {
   }): void {
     const db = getDatabase();
     const now = new Date().toISOString();
+    const tenantId = ConfigService.getActiveEmpresaId();
 
     // 1. Atualizar estoque do produto (adiciona cheios)
     if (params.qtdCheiosRecebidos > 0) {
@@ -531,9 +566,9 @@ export const EstoqueService = {
         ]);
       } else {
         db.runSync(
-          `INSERT INTO estoque_garrafoes (id, anoFabricacao, anoValidade, quantidade, status, observacoes, createdAt)
-           VALUES (?, 2024, 2027, ?, 'CHEIO', 'Carga de fábrica', ?)`,
-          [generateId(), params.qtdCheiosRecebidos, now]
+          `INSERT INTO estoque_garrafoes (id, empresaId, anoFabricacao, anoValidade, quantidade, status, observacoes, createdAt)
+           VALUES (?, ?, 2024, 2027, ?, 'CHEIO', 'Carga de fábrica', ?)`,
+          [generateId(), tenantId, params.qtdCheiosRecebidos, now]
         );
       }
     }
@@ -562,9 +597,9 @@ export const EstoqueService = {
     }`;
 
     db.runSync(
-      `INSERT INTO movimentacoes_estoque (id, produtoId, produtoNome, tipo, quantidade, motivo, data)
-       VALUES (?, ?, ?, 'ENTRADA', ?, ?, ?)`,
-      [generateId(), params.produtoId, prodNome, params.qtdCheiosRecebidos, motivoTexto, now]
+      `INSERT INTO movimentacoes_estoque (id, empresaId, produtoId, produtoNome, tipo, quantidade, motivo, data)
+       VALUES (?, ?, ?, ?, 'ENTRADA', ?, ?, ?)`,
+      [generateId(), tenantId, params.produtoId, prodNome, params.qtdCheiosRecebidos, motivoTexto, now]
     );
     CloudSyncService.agendarSincronizacaoEmSegundoPlano();
   },
@@ -721,9 +756,10 @@ export const ClientesService = {
     query += ' ORDER BY nome ASC';
 
     const rows = db.getAllSync<any>(query, params);
+    const tenantId = ConfigService.getActiveEmpresaId();
     return rows.map((r) => ({
       id: r.id,
-      empresaId: 'local',
+      empresaId: r.empresaId || tenantId,
       nome: r.nome,
       cpfCnpj: r.cpfCnpj,
       telefone: r.telefone,
@@ -748,6 +784,7 @@ export const ClientesService = {
     const now = new Date().toISOString();
     const id = c.id || generateId();
     const precosJson = JSON.stringify(c.precosEspeciais || []);
+    const tenantId = ConfigService.getActiveEmpresaId();
 
     if (c.id) {
       db.runSync(
@@ -770,10 +807,11 @@ export const ClientesService = {
       );
     } else {
       db.runSync(
-        `INSERT INTO clientes (id, nome, cpfCnpj, telefone, whatsapp, logradouro, numero, bairro, cidade, estado, pontoReferencia, latitude, longitude, ativo, precosEspeciaisJson, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+        `INSERT INTO clientes (id, empresaId, nome, cpfCnpj, telefone, whatsapp, logradouro, numero, bairro, cidade, estado, pontoReferencia, latitude, longitude, ativo, precosEspeciaisJson, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
         [
           id,
+          tenantId,
           c.nome,
           c.cpfCnpj || '',
           c.telefone || '',
@@ -938,18 +976,19 @@ export const PedidosService = {
 
     query += ' ORDER BY numero DESC, data DESC';
     const rows = db.getAllSync<any>(query, params);
+    const tenantId = ConfigService.getActiveEmpresaId();
 
     return rows.map((r) => {
       const itens: PedidoItem[] = JSON.parse(r.itensJson || '[]');
       const pagamentos = r.pagamentosJson ? JSON.parse(r.pagamentosJson) : undefined;
       return {
         id: r.id,
-        empresaId: 'local',
+        empresaId: r.empresaId || tenantId,
         numero: r.numero,
         clienteId: r.clienteId,
         cliente: {
           id: r.clienteId,
-          empresaId: 'local',
+          empresaId: r.empresaId || tenantId,
           nome: r.clienteNome,
           telefone: r.clienteTelefone,
           whatsapp: r.clienteTelefone,
@@ -1084,12 +1123,14 @@ export const PedidosService = {
       formaPag = pagamentosMultiplos[0].forma;
     }
 
-    // 4. Inserir Pedido
+    // 4. Inserir Pedido vinculado à empresa atual
+    const tenantId = ConfigService.getActiveEmpresaId();
     db.runSync(
-      `INSERT INTO pedidos (id, numero, clienteId, clienteNome, clienteTelefone, clienteEndereco, data, valorTotal, desconto, acrescimo, status, formaPagamento, trocoPara, observacoes, itensJson, pagamentosJson, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDENTE', ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO pedidos (id, empresaId, numero, clienteId, clienteNome, clienteTelefone, clienteEndereco, data, valorTotal, desconto, acrescimo, status, formaPagamento, trocoPara, observacoes, itensJson, pagamentosJson, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDENTE', ?, ?, ?, ?, ?, ?)`,
       [
         id,
+        tenantId,
         numero,
         payload.clienteId || null,
         clienteNome,
@@ -1113,16 +1154,16 @@ export const PedidosService = {
       const parteFiado = pagamentosMultiplos.find((p) => p.forma.toUpperCase().includes('FIADO'));
       if (parteFiado && parteFiado.valor > 0) {
         db.runSync(
-          `INSERT INTO fiados (id, clienteId, clienteNome, pedidoId, pedidoNumero, valorOriginal, valorPago, saldo, situacao, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'ABERTO', ?, ?)`,
-          [generateId(), payload.clienteId || 'balcao', clienteNome, id, numero, parteFiado.valor, parteFiado.valor, now, now]
+          `INSERT INTO fiados (id, empresaId, clienteId, clienteNome, pedidoId, pedidoNumero, valorOriginal, valorPago, saldo, situacao, createdAt, updatedAt)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'ABERTO', ?, ?)`,
+          [generateId(), tenantId, payload.clienteId || 'balcao', clienteNome, id, numero, parteFiado.valor, parteFiado.valor, now, now]
         );
       }
     } else if (formaPag === 'FIADO' || formaPag.toUpperCase().includes('FIADO')) {
       db.runSync(
-        `INSERT INTO fiados (id, clienteId, clienteNome, pedidoId, pedidoNumero, valorOriginal, valorPago, saldo, situacao, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'ABERTO', ?, ?)`,
-        [generateId(), payload.clienteId || 'balcao', clienteNome, id, numero, valorFinal, valorFinal, now, now]
+        `INSERT INTO fiados (id, empresaId, clienteId, clienteNome, pedidoId, pedidoNumero, valorOriginal, valorPago, saldo, situacao, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'ABERTO', ?, ?)`,
+        [generateId(), tenantId, payload.clienteId || 'balcao', clienteNome, id, numero, valorFinal, valorFinal, now, now]
       );
     }
 
@@ -1176,6 +1217,7 @@ export const FinanceiroService = {
     
     // Buscar histórico de quitações
     const quitacoesPorFiado: Record<string, any[]> = {};
+    const tenantId = ConfigService.getActiveEmpresaId();
     try {
       const quitacoesRows = db.getAllSync<any>('SELECT * FROM quitacoes_fiado ORDER BY data DESC');
       for (const q of quitacoesRows) {
@@ -1193,11 +1235,11 @@ export const FinanceiroService = {
 
     return rows.map((r) => ({
       id: r.id,
-      empresaId: 'local',
+      empresaId: r.empresaId || tenantId,
       clienteId: r.clienteId,
       cliente: {
         id: r.clienteId,
-        empresaId: 'local',
+        empresaId: r.empresaId || tenantId,
         nome: r.clienteNome,
         ativo: true,
         createdAt: r.createdAt,
@@ -1232,15 +1274,17 @@ export const FinanceiroService = {
     const novoSaldo = Math.max(0, (f.valorOriginal || 0) - novoPago);
     const novaSituacao = novoSaldo === 0 ? 'QUITADO' : 'PARCIAL';
     const now = new Date().toISOString();
+    const tenantId = f.empresaId || ConfigService.getActiveEmpresaId();
 
     // 1. Registrar histórico da quitação com a forma de pagamento selecionada
     const quitacaoId = generateId();
     try {
       db.runSync(
-        `INSERT INTO quitacoes_fiado (id, fiadoId, pedidoId, clienteId, clienteNome, valor, formaPagamento, data, observacoes, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO quitacoes_fiado (id, empresaId, fiadoId, pedidoId, clienteId, clienteNome, valor, formaPagamento, data, observacoes, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           quitacaoId,
+          tenantId,
           fiadoId,
           f.pedidoId || null,
           f.clienteId || 'balcao',
@@ -1268,9 +1312,10 @@ export const FinanceiroService = {
   getDespesas(): Despesa[] {
     const db = getDatabase();
     const rows = db.getAllSync<any>('SELECT * FROM despesas ORDER BY data DESC');
+    const tenantId = ConfigService.getActiveEmpresaId();
     return rows.map((r) => ({
       id: r.id,
-      empresaId: 'local',
+      empresaId: r.empresaId || tenantId,
       descricao: r.descricao,
       categoria: r.categoria as any,
       valor: r.valor,
@@ -1285,18 +1330,19 @@ export const FinanceiroService = {
     const db = getDatabase();
     const id = generateId();
     const now = new Date().toISOString();
+    const tenantId = ConfigService.getActiveEmpresaId();
 
     db.runSync(
-      `INSERT INTO despesas (id, descricao, categoria, valor, data, formaPagamento, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [id, d.descricao, d.categoria, d.valor, now, d.formaPagamento, now]
+      `INSERT INTO despesas (id, empresaId, descricao, categoria, valor, data, formaPagamento, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, tenantId, d.descricao, d.categoria, d.valor, now, d.formaPagamento, now]
     );
 
     CloudSyncService.agendarSincronizacaoEmSegundoPlano();
 
     return {
       id,
-      empresaId: 'local',
+      empresaId: tenantId,
       descricao: d.descricao,
       categoria: d.categoria as any,
       valor: d.valor,
