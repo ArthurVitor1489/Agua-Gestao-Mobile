@@ -456,6 +456,8 @@ export const FinanceiroScreen: React.FC = () => {
                     <QrCode size={20} color="#059669" />
                   ) : f.forma === 'DINHEIRO' ? (
                     <Banknote size={20} color="#0284c7" />
+                  ) : f.forma === 'FIADO' ? (
+                    <BookOpen size={20} color="#dc2626" />
                   ) : (
                     <CreditCard size={20} color="#f97316" />
                   )}

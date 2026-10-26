@@ -1444,7 +1444,7 @@ export const DashboardService = {
 
     // 1. Pedidos do período
     const pedidos = db.getAllSync<any>(
-      'SELECT id, valorTotal, status, formaPagamento FROM pedidos WHERE data >= ?',
+      'SELECT id, valorTotal, status, formaPagamento, pagamentosJson FROM pedidos WHERE data >= ?',
       [dataCorteIso]
     );
 
@@ -1455,6 +1455,28 @@ export const DashboardService = {
     let pedidosPendentes = 0;
     const formasMap: Record<string, { total: number; count: number }> = {};
     const statusMap: Record<string, number> = {};
+
+    const normalizarNomeForma = (nome: string): string => {
+      const up = nome.toUpperCase().trim();
+      if (up.includes('PIX')) return 'PIX';
+      if (up.includes('DINHEIRO')) return 'DINHEIRO';
+      if (up.includes('CREDITO') || up.includes('CRÉDITO')) return 'CREDITO';
+      if (up.includes('DEBITO') || up.includes('DÉBITO')) return 'DEBITO';
+      if (up.includes('FIADO')) return 'FIADO';
+      if (up.includes('BOLETO')) return 'BOLETO';
+      if (up.includes('TRANSFER')) return 'TRANSFERENCIA';
+      return up || 'OUTROS';
+    };
+
+    const somarNaForma = (formaBruta: string, valor: number) => {
+      if (valor <= 0) return;
+      const formaNorm = normalizarNomeForma(formaBruta);
+      if (!formasMap[formaNorm]) {
+        formasMap[formaNorm] = { total: 0, count: 0 };
+      }
+      formasMap[formaNorm].total += valor;
+      formasMap[formaNorm].count += 1;
+    };
 
     for (const p of pedidos) {
       if (p.status !== 'CANCELADO') {
@@ -1481,12 +1503,50 @@ export const DashboardService = {
         emAberto += pendente;
         recebido += pago;
 
-        // Formas
-        if (!formasMap[p.formaPagamento]) {
-          formasMap[p.formaPagamento] = { total: 0, count: 0 };
+        // Formas de Pagamento (separando pagamentos múltiplos em suas respectivas categorias)
+        let processouMultiplos = false;
+
+        // 1. Verificar pagamentosJson gravado no pedido
+        if (p.pagamentosJson) {
+          try {
+            const list = JSON.parse(p.pagamentosJson);
+            if (Array.isArray(list) && list.length > 0) {
+              for (const item of list) {
+                const val = typeof item.valor === 'number' ? item.valor : parseFloat(item.valor);
+                if (item.forma && !isNaN(val) && val > 0) {
+                  somarNaForma(item.forma, val);
+                }
+              }
+              processouMultiplos = true;
+            }
+          } catch {}
         }
-        formasMap[p.formaPagamento].total += p.valorTotal;
-        formasMap[p.formaPagamento].count++;
+
+        // 2. Se não tinha JSON mas a string formaPagamento contém múltiplos meios (ex: "DINHEIRO (R$ 40.00) + PIX (R$ 20.00)")
+        if (!processouMultiplos) {
+          const str = String(p.formaPagamento || '');
+          if (str.includes('+') && (str.includes('R$') || str.includes('('))) {
+            const regex = /([A-Za-zÀ-ÖØ-öø-ÿ]+)\s*\(\s*R\$\s*([\d\.,]+)\s*\)/g;
+            let match;
+            let encontrou = false;
+            while ((match = regex.exec(str)) !== null) {
+              const formaNome = match[1];
+              const val = parseFloat(match[2].replace(',', '.'));
+              if (!isNaN(val) && val > 0) {
+                somarNaForma(formaNome, val);
+                encontrou = true;
+              }
+            }
+            if (encontrou) {
+              processouMultiplos = true;
+            }
+          }
+        }
+
+        // 3. Pagamento simples padrão
+        if (!processouMultiplos) {
+          somarNaForma(p.formaPagamento || 'OUTROS', p.valorTotal || 0);
+        }
       }
 
       if (p.status === 'PENDENTE' || p.status === 'EM_ANDAMENTO') {
@@ -1539,11 +1599,13 @@ export const DashboardService = {
       garrafoesVazios,
       garrafoesDanificados,
       garrafoesVencidos,
-      recebimentoPorForma: Object.entries(formasMap).map(([forma, data]) => ({
-        forma: forma as FormaPagamento,
-        valor: data.total,
-        quantidade: data.count,
-      })),
+      recebimentoPorForma: Object.entries(formasMap)
+        .sort(([, a], [, b]) => b.total - a.total)
+        .map(([forma, data]) => ({
+          forma: forma as FormaPagamento,
+          valor: data.total,
+          quantidade: data.count,
+        })),
       pedidosPorStatus: Object.entries(statusMap).map(([status, count]) => ({
         status: status as StatusPedido,
         quantidade: count,

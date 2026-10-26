@@ -259,6 +259,8 @@ export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =
                       <QrCode size={18} color="#059669" />
                     ) : f.forma === 'DINHEIRO' ? (
                       <DollarSign size={18} color="#0284c7" />
+                    ) : f.forma === 'FIADO' ? (
+                      <Clock size={18} color="#dc2626" />
                     ) : (
                       <CreditCard size={18} color="#f97316" />
                     )}
