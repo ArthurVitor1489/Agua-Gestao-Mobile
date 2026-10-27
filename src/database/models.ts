@@ -343,3 +343,22 @@ export interface SyncQueueItem {
   errorMessage?: string;
   descricaoOperacao: string;
 }
+
+export interface ChecklistItem {
+  id: string;
+  texto: string;
+  concluido: boolean;
+}
+
+export interface Nota {
+  id: string;
+  empresaId?: string;
+  titulo: string;
+  conteudo: string;
+  tipo: 'texto' | 'checklist';
+  cor: string;
+  fixado: boolean;
+  concluido: boolean;
+  createdAt: string;
+  updatedAt: string;
+}

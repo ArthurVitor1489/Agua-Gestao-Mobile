@@ -188,10 +188,42 @@ export const initDatabase = (db: SQLite.SQLiteDatabase) => {
     );
   `);
 
+  // 10. Tabela de Bloco de Notas e Lembretes Operacionais
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS notas (
+      id TEXT PRIMARY KEY,
+      empresaId TEXT,
+      titulo TEXT NOT NULL,
+      conteudo TEXT NOT NULL,
+      tipo TEXT NOT NULL DEFAULT 'texto',
+      cor TEXT DEFAULT '#FEF3C7',
+      fixado INTEGER DEFAULT 0,
+      concluido INTEGER DEFAULT 0,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
+  `);
+
   // Seed Inicial Automático
   seedInitialData(db);
 
   // Migrações seguras de colunas caso o banco já existisse no aparelho
+  try {
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS notas (
+        id TEXT PRIMARY KEY,
+        empresaId TEXT,
+        titulo TEXT NOT NULL,
+        conteudo TEXT NOT NULL,
+        tipo TEXT NOT NULL DEFAULT 'texto',
+        cor TEXT DEFAULT '#FEF3C7',
+        fixado INTEGER DEFAULT 0,
+        concluido INTEGER DEFAULT 0,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      );
+    `);
+  } catch {}
   try { db.execSync('ALTER TABLE usuarios ADD COLUMN empresaNome TEXT;'); } catch {}
   try { db.execSync("ALTER TABLE usuarios ADD COLUMN role TEXT DEFAULT 'ADMIN';"); } catch {}
   try { db.execSync('ALTER TABLE configuracao ADD COLUMN trialStartDate TEXT;'); } catch {}

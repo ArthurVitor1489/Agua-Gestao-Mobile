@@ -16,6 +16,8 @@ import {
   StatusPedido,
   FormaPagamento,
   GanhosMes,
+  Nota,
+  ChecklistItem,
 } from './models';
 
 // UUID helper
@@ -1747,5 +1749,188 @@ export const DashboardService = {
         valorTotal: 0,
       })),
     };
+  },
+};
+
+// ----------------------------------------------------
+// 12. SERVIÇO DE BLOCO DE NOTAS & LEMBRETES DO DIA
+// ----------------------------------------------------
+export const NotasService = {
+  getNotas(empresaId?: string): Nota[] {
+    const db = getDatabase();
+    try {
+      let query = 'SELECT * FROM notas WHERE concluido = 0';
+      const params: any[] = [];
+      if (empresaId) {
+        query += ' AND (empresaId = ? OR empresaId IS NULL)';
+        params.push(empresaId);
+      }
+      query += ' ORDER BY fixado DESC, updatedAt DESC';
+
+      const rows = db.getAllSync<any>(query, params);
+      return rows.map((r) => ({
+        id: r.id,
+        empresaId: r.empresaId,
+        titulo: r.titulo,
+        conteudo: r.conteudo,
+        tipo: r.tipo as 'texto' | 'checklist',
+        cor: r.cor || '#FEF3C7',
+        fixado: Boolean(r.fixado),
+        concluido: Boolean(r.concluido),
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      }));
+    } catch (e) {
+      console.warn('Erro ao buscar notas ativas:', e);
+      return [];
+    }
+  },
+
+  getTodasNotas(empresaId?: string): Nota[] {
+    const db = getDatabase();
+    try {
+      let query = 'SELECT * FROM notas';
+      const params: any[] = [];
+      if (empresaId) {
+        query += ' WHERE (empresaId = ? OR empresaId IS NULL)';
+        params.push(empresaId);
+      }
+      query += ' ORDER BY fixado DESC, concluido ASC, updatedAt DESC';
+
+      const rows = db.getAllSync<any>(query, params);
+      return rows.map((r) => ({
+        id: r.id,
+        empresaId: r.empresaId,
+        titulo: r.titulo,
+        conteudo: r.conteudo,
+        tipo: r.tipo as 'texto' | 'checklist',
+        cor: r.cor || '#FEF3C7',
+        fixado: Boolean(r.fixado),
+        concluido: Boolean(r.concluido),
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      }));
+    } catch (e) {
+      console.warn('Erro ao buscar todas as notas:', e);
+      return [];
+    }
+  },
+
+  salvarNota(nota: {
+    id?: string;
+    empresaId?: string;
+    titulo: string;
+    conteudo: string;
+    tipo: 'texto' | 'checklist';
+    cor?: string;
+    fixado?: boolean;
+    concluido?: boolean;
+  }): Nota {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const id = nota.id || generateId();
+    const cor = nota.cor || '#FEF3C7';
+    const fixadoNum = nota.fixado ? 1 : 0;
+    const concluidoNum = nota.concluido ? 1 : 0;
+
+    if (nota.id) {
+      // Atualizar existente
+      db.runSync(
+        `UPDATE notas 
+         SET titulo = ?, conteudo = ?, tipo = ?, cor = ?, fixado = ?, concluido = ?, updatedAt = ? 
+         WHERE id = ?`,
+        [nota.titulo, nota.conteudo, nota.tipo, cor, fixadoNum, concluidoNum, now, nota.id]
+      );
+    } else {
+      // Inserir nova
+      db.runSync(
+        `INSERT INTO notas (id, empresaId, titulo, conteudo, tipo, cor, fixado, concluido, createdAt, updatedAt) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, nota.empresaId || null, nota.titulo, nota.conteudo, nota.tipo, cor, fixadoNum, concluidoNum, now, now]
+      );
+    }
+
+    return {
+      id,
+      empresaId: nota.empresaId,
+      titulo: nota.titulo,
+      conteudo: nota.conteudo,
+      tipo: nota.tipo,
+      cor,
+      fixado: Boolean(nota.fixado),
+      concluido: Boolean(nota.concluido),
+      createdAt: now,
+      updatedAt: now,
+    };
+  },
+
+  excluirNota(id: string): boolean {
+    const db = getDatabase();
+    try {
+      db.runSync('DELETE FROM notas WHERE id = ?', [id]);
+      return true;
+    } catch (e) {
+      console.warn('Erro ao excluir nota:', e);
+      return false;
+    }
+  },
+
+  toggleFixado(id: string): boolean {
+    const db = getDatabase();
+    try {
+      const nota = db.getFirstSync<any>('SELECT fixado FROM notas WHERE id = ?', [id]);
+      if (!nota) return false;
+      const novoFixado = nota.fixado ? 0 : 1;
+      const now = new Date().toISOString();
+      db.runSync('UPDATE notas SET fixado = ?, updatedAt = ? WHERE id = ?', [novoFixado, now, id]);
+      return true;
+    } catch (e) {
+      console.warn('Erro ao alternar fixado:', e);
+      return false;
+    }
+  },
+
+  toggleConcluido(id: string): boolean {
+    const db = getDatabase();
+    try {
+      const nota = db.getFirstSync<any>('SELECT concluido FROM notas WHERE id = ?', [id]);
+      if (!nota) return false;
+      const novoConcluido = nota.concluido ? 0 : 1;
+      const now = new Date().toISOString();
+      db.runSync('UPDATE notas SET concluido = ?, updatedAt = ? WHERE id = ?', [novoConcluido, now, id]);
+      return true;
+    } catch (e) {
+      console.warn('Erro ao alternar concluido:', e);
+      return false;
+    }
+  },
+
+  toggleChecklistItem(notaId: string, itemId: string): boolean {
+    const db = getDatabase();
+    try {
+      const row = db.getFirstSync<any>('SELECT conteudo FROM notas WHERE id = ?', [notaId]);
+      if (!row || !row.conteudo) return false;
+      let itens: ChecklistItem[] = [];
+      try {
+        itens = JSON.parse(row.conteudo);
+      } catch {
+        return false;
+      }
+
+      itens = itens.map((item) =>
+        item.id === itemId ? { ...item, concluido: !item.concluido } : item
+      );
+
+      const allCompleted = itens.length > 0 && itens.every((i) => i.concluido);
+      const now = new Date().toISOString();
+      db.runSync(
+        'UPDATE notas SET conteudo = ?, concluido = ?, updatedAt = ? WHERE id = ?',
+        [JSON.stringify(itens), allCompleted ? 1 : 0, now, notaId]
+      );
+      return true;
+    } catch (e) {
+      console.warn('Erro ao alternar item de checklist:', e);
+      return false;
+    }
   },
 };

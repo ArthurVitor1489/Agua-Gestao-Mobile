@@ -10,9 +10,10 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
-import { DashboardService, ClientesService } from '../../database/dbService';
-import { DashboardData, RecompraOportunidade } from '../../database/models';
+import { DashboardService, ClientesService, NotasService } from '../../database/dbService';
+import { DashboardData, RecompraOportunidade, Nota } from '../../database/models';
 import { HapticService } from '../../services/hapticService';
+import { BlocoNotasCard } from '../../components/notas/BlocoNotasCard';
 import {
   TrendingUp,
   ShoppingBag,
@@ -34,6 +35,7 @@ export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<DashboardData | null>(null);
   const [recompraAtrasados, setRecompraAtrasados] = useState<RecompraOportunidade[]>([]);
+  const [notas, setNotas] = useState<Nota[]>([]);
 
   // Recarrega os indicadores instantaneamente sempre que o usuário abre a aba Dashboard
   useFocusEffect(
@@ -50,8 +52,10 @@ export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =
     try {
       const dash = DashboardService.getDashboard(periodo);
       const recompra = ClientesService.getRecompraOportunidades();
+      const notasList = NotasService.getNotas();
       setData(dash);
       setRecompraAtrasados(recompra);
+      setNotas(notasList);
     } catch (e) {
       console.warn('Erro ao carregar dashboard:', e);
     } finally {
@@ -247,6 +251,9 @@ export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =
               </View>
             </View>
           </TouchableOpacity>
+
+          {/* Bloco de Notas e Recados Operacionais */}
+          <BlocoNotasCard notas={notas} onRefresh={loadDashboard} />
 
           {/* Recebimentos por Meio de Pagamento */}
           <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
