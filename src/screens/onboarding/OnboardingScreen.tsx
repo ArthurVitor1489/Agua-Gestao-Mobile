@@ -88,7 +88,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }
           <View style={[styles.trialBadge, { backgroundColor: '#dcfce7', borderColor: '#86efac' }]}>
             <Sparkles size={13} color="#15803d" />
             <Text style={{ color: '#15803d', fontSize: 11, fontWeight: '800' }}>
-              14 DIAS GRÁTIS • EDICÃO GOOGLE PLAY
+              EDICÃO COMERCIAL • GOOGLE PLAY
             </Text>
           </View>
         </View>

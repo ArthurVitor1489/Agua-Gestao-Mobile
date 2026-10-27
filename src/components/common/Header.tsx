@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { useSubscription } from '../../context/SubscriptionContext';
 import { ConfigService } from '../../database/dbService';
 import { ConfiguracoesModal } from '../../screens/configuracoes/ConfiguracoesModal';
 import { HapticService } from '../../services/hapticService';
@@ -11,18 +10,16 @@ import {
   Building2,
   Sun,
   Moon,
-  Sparkles,
   Settings,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const Header: React.FC = () => {
   const { colors, isDark, setThemeMode } = useTheme();
-  const { isTrialActive, daysRemaining, openPaywall } = useSubscription();
   const insets = useSafeAreaInsets();
   const [nomeDistribuidora, setNomeDistribuidora] = useState('Água Gestão Pro');
   const [showConfigModal, setShowConfigModal] = useState(false);
-  const [modalInitialTab, setModalInitialTab] = useState<'produtos' | 'distribuidora' | 'termos' | 'licenca'>('produtos');
+  const [modalInitialTab, setModalInitialTab] = useState<'produtos' | 'distribuidora' | 'termos'>('produtos');
 
   const carregarConfig = () => {
     const cfg = ConfigService.getConfig();
@@ -91,25 +88,6 @@ export const Header: React.FC = () => {
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Banner Informativo de Teste Grátis (14 Dias) */}
-      {isTrialActive && daysRemaining !== null && (
-        <TouchableOpacity
-          style={[styles.trialBanner, { backgroundColor: '#fef3c7', borderColor: '#fde68a' }]}
-          onPress={openPaywall}
-          activeOpacity={0.8}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Sparkles size={14} color="#b45309" />
-            <Text style={styles.trialBannerText}>
-              Período de teste: <Text style={{ fontWeight: '900', color: '#92400e' }}>{daysRemaining} dias restantes</Text>
-            </Text>
-          </View>
-          <View style={[styles.trialCtaBtn, { backgroundColor: colors.primary }]}>
-            <Text style={styles.trialCtaText}>ASSINAR</Text>
-          </View>
-        </TouchableOpacity>
-      )}
 
       {/* Modal de Configurações e Gestão de Produtos */}
       <ConfiguracoesModal

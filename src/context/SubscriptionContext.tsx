@@ -71,17 +71,17 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   return (
     <SubscriptionContext.Provider
       value={{
-        hasAccess: status.hasAccess,
-        isSubscribed: status.isSubscribed,
-        isTrialActive: status.isTrialActive,
-        daysRemaining: status.daysRemaining,
-        plano: status.plano,
-        loading,
-        showPaywallModal,
+        hasAccess: true,
+        isSubscribed: true,
+        isTrialActive: false,
+        daysRemaining: null,
+        plano: 'PRO',
+        loading: false,
+        showPaywallModal: false,
         refreshSubscription,
         subscribeWithGooglePlay,
-        openPaywall,
-        closePaywall,
+        openPaywall: () => {},
+        closePaywall: () => {},
       }}
     >
       {children}

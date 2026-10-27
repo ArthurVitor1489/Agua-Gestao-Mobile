@@ -4,14 +4,12 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { useSubscription } from '../context/SubscriptionContext';
 import { Header } from '../components/common/Header';
 import { HapticService } from '../services/hapticService';
 
-// Telas de Autenticação & Paywall
+// Telas de Autenticação
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
-import { PaywallScreen } from '../screens/subscription/PaywallScreen';
 
 // Telas Principais do App
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
@@ -36,7 +34,6 @@ const Tab = createBottomTabNavigator();
 export const AppNavigator: React.FC = () => {
   const { colors } = useTheme();
   const { user, isLoading } = useAuth();
-  const { hasAccess, showPaywallModal, closePaywall } = useSubscription();
   const insets = useSafeAreaInsets();
 
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -64,11 +61,6 @@ export const AppNavigator: React.FC = () => {
       return <RegisterScreen onNavigateToLogin={() => setAuthMode('login')} />;
     }
     return <LoginScreen onNavigateToRegister={() => setAuthMode('register')} />;
-  }
-
-  // Se o período de teste de 14 dias expirou e não possui assinatura
-  if (!hasAccess) {
-    return <PaywallScreen />;
   }
 
   return (
@@ -146,9 +138,6 @@ export const AppNavigator: React.FC = () => {
           />
         </Tab.Navigator>
       </NavigationContainer>
-
-      {/* Modal Paywall sob demanda */}
-      <PaywallScreen visible={showPaywallModal} onClose={closePaywall} />
     </View>
   );
 };

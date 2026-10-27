@@ -110,7 +110,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
       if (res.success) {
         Alert.alert(
           'Conta Criada com Sucesso! 🎉',
-          'Sua distribuidora foi configurada e seu período de teste de 14 dias grátis já está ativo!'
+          'Sua distribuidora foi configurada e seu acesso já está liberado!'
         );
       } else {
         Alert.alert('Erro no Cadastro', res.error || 'Falha ao criar conta.');
@@ -158,7 +158,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
           <View style={[styles.trialBadge, { backgroundColor: '#dcfce7', borderColor: '#86efac' }]}>
             <Sparkles size={12} color="#15803d" />
             <Text style={{ color: '#15803d', fontSize: 11, fontWeight: '800' }}>
-              14 DIAS GRÁTIS • EDICÃO GOOGLE PLAY
+              EDICÃO COMERCIAL • GOOGLE PLAY
             </Text>
           </View>
         </View>
@@ -318,7 +318,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
               <ActivityIndicator color="#fff" size="small" />
             ) : (
               <>
-                <Text style={styles.registerBtnText}>CRIAR CONTA & INICIAR TESTE</Text>
+                <Text style={styles.registerBtnText}>CRIAR CONTA & ENTRAR</Text>
                 <ArrowRight size={18} color="#fff" />
               </>
             )}

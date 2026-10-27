@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { useSubscription } from '../../context/SubscriptionContext';
 import { ConfigService, ProdutosService } from '../../database/dbService';
 import { Produto } from '../../database/models';
 import { ProdutoFormModal } from './ProdutoFormModal';
@@ -48,7 +47,7 @@ interface ConfiguracoesModalProps {
   visible: boolean;
   onClose: () => void;
   onConfigUpdated?: () => void;
-  initialTab?: 'produtos' | 'distribuidora' | 'termos' | 'licenca';
+  initialTab?: 'produtos' | 'distribuidora' | 'termos';
 }
 
 export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
@@ -59,9 +58,8 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
 }) => {
   const { colors } = useTheme();
   const { logout } = useAuth();
-  const { isTrialActive, daysRemaining, isSubscribed, openPaywall } = useSubscription();
 
-  const [abaAtiva, setAbaAtiva] = useState<'produtos' | 'distribuidora' | 'termos' | 'licenca'>(initialTab);
+  const [abaAtiva, setAbaAtiva] = useState<'produtos' | 'distribuidora' | 'termos'>(initialTab);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -237,7 +235,7 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
               <View>
                 <Text style={[styles.title, { color: colors.text }]}>Configurações</Text>
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                  Produtos, distribuidora, segurança e licença
+                  Produtos, distribuidora e privacidade
                 </Text>
               </View>
             </View>
@@ -301,23 +299,6 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
                   Privacidade
                 </Text>
               </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tabItem, abaAtiva === 'licenca' && { borderBottomColor: colors.primary, borderBottomWidth: 3 }]}
-              onPress={() => {
-                HapticService.light();
-                setAbaAtiva('licenca');
-              }}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: abaAtiva === 'licenca' ? colors.primary : colors.textMuted, fontWeight: abaAtiva === 'licenca' ? '800' : '600' },
-                ]}
-              >
-                Assinatura
-              </Text>
             </TouchableOpacity>
           </View>
 
@@ -658,48 +639,8 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
                 <ChevronRight size={18} color={colors.danger} />
               </TouchableOpacity>
 
-              <View style={{ height: 40 }} />
-            </ScrollView>
-          )}
-
-          {/* ---------------- ABA 4: LICENÇA E ASSINATURA ---------------- */}
-          {abaAtiva === 'licenca' && (
-            <ScrollView style={styles.bodyScroll} showsVerticalScrollIndicator={false}>
-              <View style={[styles.licenseBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                {isSubscribed ? (
-                  <>
-                    <ShieldCheck size={32} color={colors.success} />
-                    <Text style={[styles.licenseTitle, { color: colors.success }]}>Licença Pro Ativa</Text>
-                    <Text style={{ fontSize: 13, color: colors.textMuted, textAlign: 'center', marginTop: 4 }}>
-                      Sua assinatura Google Play Store está ativa e sem restrições.
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={32} color="#b45309" />
-                    <Text style={[styles.licenseTitle, { color: '#b45309' }]}>Período de Teste Grátis</Text>
-                    <Text style={{ fontSize: 15, fontWeight: '900', color: '#92400e', marginTop: 4 }}>
-                      {daysRemaining !== null ? `${daysRemaining} dias restantes` : '14 dias'}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center', marginTop: 6 }}>
-                      Aproveite todos os recursos liberados. Quando o teste expirar, você poderá assinar por apenas R$ 39,90/mês.
-                    </Text>
-                    <TouchableOpacity
-                      style={[styles.assinarBtn, { backgroundColor: colors.primary }]}
-                      onPress={() => {
-                        onClose();
-                        openPaywall();
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.assinarBtnText}>VER PLANOS GOOGLE PLAY</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-
               {/* Informações Técnicas */}
-              <View style={[styles.techInfoBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={[styles.techInfoBox, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 16 }]}>
                 <Text style={[styles.techTitle, { color: colors.text }]}>Informações do Aplicativo</Text>
                 <TouchableOpacity
                   onPress={handleAdminEasterEgg}
