@@ -63,16 +63,19 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType>({
   colors: lightColors,
   isDark: false,
-  themeMode: 'system',
+  themeMode: 'light',
   setThemeMode: () => {},
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const systemScheme = useColorScheme();
-  const [themeMode, setThemeModeState] = useState<'light' | 'dark' | 'system'>('system');
+  const [themeMode, setThemeModeState] = useState<'light' | 'dark' | 'system'>('light');
 
   useEffect(() => {
-    LocalStorage.getThemeMode().then(setThemeModeState);
+    LocalStorage.getThemeMode().then((saved) => {
+      if (saved) {
+        setThemeModeState(saved);
+      }
+    });
   }, []);
 
   const setThemeMode = (mode: 'light' | 'dark' | 'system') => {
@@ -80,7 +83,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     LocalStorage.setThemeMode(mode);
   };
 
-  const isDark = themeMode === 'system' ? systemScheme === 'dark' : themeMode === 'dark';
+  const isDark = themeMode === 'dark';
   const colors = isDark ? darkColors : lightColors;
 
   return (

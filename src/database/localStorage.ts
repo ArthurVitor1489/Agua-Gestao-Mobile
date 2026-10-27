@@ -210,7 +210,7 @@ export const LocalStorage = {
   },
   async getThemeMode(): Promise<'light' | 'dark' | 'system'> {
     const mode = await AsyncStorage.getItem(KEYS.THEME_MODE);
-    return (mode as any) || 'system';
+    return (mode as any) || 'light';
   },
 
   // --- Configuração de Servidor / IP da API ---
