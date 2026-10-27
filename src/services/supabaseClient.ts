@@ -94,7 +94,11 @@ export const SupabaseClientService = {
     const db = getDatabase();
     const time = timestamp || new Date().toISOString();
     try {
-      db.runSync('UPDATE admin_cloud_config SET lastSyncAt = ? WHERE id = ?', [time, 'supabase_config']);
+      db.runSync(`
+        INSERT INTO admin_cloud_config (id, url, apiKey, lastSyncAt)
+        VALUES ('supabase_config', ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET lastSyncAt = excluded.lastSyncAt;
+      `, [DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_KEY, time]);
     } catch (e) {
       console.warn('Erro ao atualizar lastSyncAt:', e);
     }

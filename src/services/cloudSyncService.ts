@@ -182,6 +182,7 @@ export const CloudSyncService = {
 
     let totalPushed = 0;
     let totalPulled = 0;
+    const syncErrors: string[] = [];
     const now = new Date().toISOString();
     const db = getDatabase();
     const tenantEmpresaId = getTenantEmpresaId(db);
@@ -201,8 +202,10 @@ export const CloudSyncService = {
         if (configs.length > 0) {
           const { error } = await supabase.from('configuracao').upsert(configs, { onConflict: 'id' });
           if (!error) totalPushed += configs.length;
+          else syncErrors.push(`configuracao: ${error.message}`);
         }
-      } catch (err) {
+      } catch (err: any) {
+        syncErrors.push(`configuracao: ${err?.message || err}`);
         console.warn('Sync push configuracao:', err);
       }
 
@@ -215,8 +218,10 @@ export const CloudSyncService = {
         if (produtos.length > 0) {
           const { error } = await supabase.from('produtos').upsert(produtos, { onConflict: 'id' });
           if (!error) totalPushed += produtos.length;
+          else syncErrors.push(`produtos: ${error.message}`);
         }
-      } catch (err) {
+      } catch (err: any) {
+        syncErrors.push(`produtos: ${err?.message || err}`);
         console.warn('Sync push produtos:', err);
       }
 
@@ -229,8 +234,10 @@ export const CloudSyncService = {
         if (garrafoes.length > 0) {
           const { error } = await supabase.from('estoque_garrafoes').upsert(garrafoes, { onConflict: 'id' });
           if (!error) totalPushed += garrafoes.length;
+          else syncErrors.push(`estoque_garrafoes: ${error.message}`);
         }
-      } catch (err) {
+      } catch (err: any) {
+        syncErrors.push(`estoque_garrafoes: ${err?.message || err}`);
         console.warn('Sync push estoque_garrafoes:', err);
       }
 
@@ -243,8 +250,10 @@ export const CloudSyncService = {
         if (clientes.length > 0) {
           const { error } = await supabase.from('clientes').upsert(clientes, { onConflict: 'id' });
           if (!error) totalPushed += clientes.length;
+          else syncErrors.push(`clientes: ${error.message}`);
         }
-      } catch (err) {
+      } catch (err: any) {
+        syncErrors.push(`clientes: ${err?.message || err}`);
         console.warn('Sync push clientes:', err);
       }
 
@@ -257,8 +266,10 @@ export const CloudSyncService = {
         if (pedidos.length > 0) {
           const { error } = await supabase.from('pedidos').upsert(pedidos, { onConflict: 'id' });
           if (!error) totalPushed += pedidos.length;
+          else syncErrors.push(`pedidos: ${error.message}`);
         }
-      } catch (err) {
+      } catch (err: any) {
+        syncErrors.push(`pedidos: ${err?.message || err}`);
         console.warn('Sync push pedidos:', err);
       }
 
@@ -271,8 +282,10 @@ export const CloudSyncService = {
         if (fiados.length > 0) {
           const { error } = await supabase.from('fiados').upsert(fiados, { onConflict: 'id' });
           if (!error) totalPushed += fiados.length;
+          else syncErrors.push(`fiados: ${error.message}`);
         }
-      } catch (err) {
+      } catch (err: any) {
+        syncErrors.push(`fiados: ${err?.message || err}`);
         console.warn('Sync push fiados:', err);
       }
 
@@ -285,8 +298,10 @@ export const CloudSyncService = {
         if (despesas.length > 0) {
           const { error } = await supabase.from('despesas').upsert(despesas, { onConflict: 'id' });
           if (!error) totalPushed += despesas.length;
+          else syncErrors.push(`despesas: ${error.message}`);
         }
-      } catch (err) {
+      } catch (err: any) {
+        syncErrors.push(`despesas: ${err?.message || err}`);
         console.warn('Sync push despesas:', err);
       }
 
@@ -299,8 +314,10 @@ export const CloudSyncService = {
         if (movs.length > 0) {
           const { error } = await supabase.from('movimentacoes_estoque').upsert(movs, { onConflict: 'id' });
           if (!error) totalPushed += movs.length;
+          else syncErrors.push(`movimentacoes_estoque: ${error.message}`);
         }
-      } catch (err) {
+      } catch (err: any) {
+        syncErrors.push(`movimentacoes_estoque: ${err?.message || err}`);
         console.warn('Sync push movimentacoes_estoque:', err);
       }
 
@@ -313,8 +330,10 @@ export const CloudSyncService = {
         if (quitacoes.length > 0) {
           const { error } = await supabase.from('quitacoes_fiado').upsert(quitacoes, { onConflict: 'id' });
           if (!error) totalPushed += quitacoes.length;
+          else syncErrors.push(`quitacoes_fiado: ${error.message}`);
         }
-      } catch (err) {
+      } catch (err: any) {
+        syncErrors.push(`quitacoes_fiado: ${err?.message || err}`);
         console.warn('Sync push quitacoes_fiado:', err);
       }
 
@@ -558,6 +577,19 @@ export const CloudSyncService = {
 
       // Atualiza timestamp da sincronização
       SupabaseClientService.updateLastSyncTime(now);
+
+      if (syncErrors.length > 0 && totalPushed === 0) {
+        const errorDetail = syncErrors[0];
+        const msg = `Aviso: As tabelas do Supabase precisam ser atualizadas com o script SQL.\nMotivo: ${errorDetail}`;
+        this.notifyListeners('error', msg);
+        return {
+          success: false,
+          pushed: 0,
+          pulled: totalPulled,
+          message: msg,
+          timestamp: now,
+        };
+      }
 
       const msg = `Sincronização concluída! (${totalPushed} enviados, ${totalPulled} recebidos)`;
       this.notifyListeners('success', msg);
