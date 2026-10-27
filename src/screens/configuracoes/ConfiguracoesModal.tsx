@@ -19,6 +19,7 @@ import { ConfigService, ProdutosService } from '../../database/dbService';
 import { Produto } from '../../database/models';
 import { ProdutoFormModal } from './ProdutoFormModal';
 import { SuperAdminModal } from '../admin/SuperAdminModal';
+import { TermosPrivacidadeModal } from '../legal/TermosPrivacidadeModal';
 import { HapticService } from '../../services/hapticService';
 import { SupabaseClientService } from '../../services/supabaseClient';
 import { CloudSyncService } from '../../services/cloudSyncService';
@@ -38,15 +39,16 @@ import {
   CloudOff,
   RefreshCw,
   Database,
-  Copy,
-  CheckCircle2,
+  FileText,
+  ChevronRight,
+  AlertTriangle,
 } from 'lucide-react-native';
 
 interface ConfiguracoesModalProps {
   visible: boolean;
   onClose: () => void;
   onConfigUpdated?: () => void;
-  initialTab?: 'produtos' | 'distribuidora' | 'nuvem' | 'licenca';
+  initialTab?: 'produtos' | 'distribuidora' | 'termos' | 'licenca';
 }
 
 export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
@@ -59,7 +61,7 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
   const { logout } = useAuth();
   const { isTrialActive, daysRemaining, isSubscribed, openPaywall } = useSubscription();
 
-  const [abaAtiva, setAbaAtiva] = useState<'produtos' | 'distribuidora' | 'nuvem' | 'licenca'>(initialTab);
+  const [abaAtiva, setAbaAtiva] = useState<'produtos' | 'distribuidora' | 'termos' | 'licenca'>(initialTab);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -71,18 +73,16 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
   const [estado, setEstado] = useState('SP');
   const [salvandoConfig, setSalvandoConfig] = useState(false);
 
-  // Form Banco de Dados / Supabase Nuvem
-  const [supabaseUrl, setSupabaseUrl] = useState('');
-  const [supabaseAnonKey, setSupabaseAnonKey] = useState('');
+  // Status de Sincronização
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
-  const [testandoConexao, setTestandoConexao] = useState(false);
   const [sincronizandoNuvem, setSincronizandoNuvem] = useState(false);
   const [statusConexaoNuvem, setStatusConexaoNuvem] = useState<'conectado' | 'desconectado' | 'pendente'>('desconectado');
-  const [copiadoSql, setCopiadoSql] = useState(false);
 
-  // Modal de Produto & Super Admin
+  // Modal de Produto, Super Admin & Termos
   const [showProdutoModal, setShowProdutoModal] = useState(false);
   const [showSuperAdminModal, setShowSuperAdminModal] = useState(false);
+  const [showTermosModal, setShowTermosModal] = useState(false);
+  const [termosInitialTab, setTermosInitialTab] = useState<'termos' | 'privacidade' | 'exclusao'>('termos');
   const [produtoEmEdicao, setProdutoEmEdicao] = useState<Produto | null>(null);
 
   // Easter egg: 5 toques seguidos na versão para abrir o Painel Admin Master
@@ -130,10 +130,8 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
         setEstado(cfg.estado || 'SP');
       }
 
-      // Carregar dados da Nuvem Supabase
+      // Carregar dados de Sincronização
       const supCfg = SupabaseClientService.getConfig();
-      setSupabaseUrl(supCfg.url);
-      setSupabaseAnonKey(supCfg.anonKey);
       setLastSyncTime(supCfg.lastSyncAt);
       setStatusConexaoNuvem(supCfg.isConfigured ? 'conectado' : 'desconectado');
     } catch (e) {
@@ -188,64 +186,6 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
     ]);
   };
 
-  // Funções de Conexão Supabase
-  const handleTestarConexao = async () => {
-    if (!supabaseUrl.trim() || !supabaseAnonKey.trim()) {
-      Alert.alert('Atenção', 'Preencha a URL do projeto e a Chave Anon antes de testar.');
-      return;
-    }
-
-    setTestandoConexao(true);
-    await HapticService.light();
-
-    try {
-      const res = await SupabaseClientService.testConnection(supabaseUrl, supabaseAnonKey);
-      if (res.success) {
-        await HapticService.success();
-        setStatusConexaoNuvem('conectado');
-        Alert.alert('Sucesso na Conexão! 🚀', res.message);
-      } else {
-        await HapticService.error();
-        setStatusConexaoNuvem('desconectado');
-        Alert.alert('Falha na Conexão', res.message);
-      }
-    } catch (err: any) {
-      await HapticService.error();
-      Alert.alert('Erro', err?.message || 'Falha ao conectar.');
-    } finally {
-      setTestandoConexao(false);
-    }
-  };
-
-  const handleSalvarConexaoSupabase = async () => {
-    if (!supabaseUrl.trim() || !supabaseAnonKey.trim()) {
-      Alert.alert('Atenção', 'Preencha a URL do projeto e a Chave Anon.');
-      return;
-    }
-
-    try {
-      await HapticService.medium();
-      SupabaseClientService.saveConfig(supabaseUrl, supabaseAnonKey);
-      setStatusConexaoNuvem('conectado');
-      await HapticService.success();
-
-      Alert.alert(
-        'Banco Conectado!',
-        'Credenciais salvas com sucesso. Deseja realizar a sincronização completa agora?',
-        [
-          { text: 'Depois', style: 'cancel' },
-          {
-            text: 'Sincronizar Agora',
-            onPress: () => handleSincronizarAgora(),
-          },
-        ]
-      );
-    } catch (e: any) {
-      await HapticService.error();
-      Alert.alert('Erro', e.message || 'Falha ao salvar configurações da nuvem.');
-    }
-  };
-
   const handleSincronizarAgora = async () => {
     setSincronizandoNuvem(true);
     await HapticService.medium();
@@ -268,22 +208,6 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
       Alert.alert('Erro', err?.message || 'Falha durante a sincronização.');
     } finally {
       setSincronizandoNuvem(false);
-    }
-  };
-
-  const handleCopiarSql = async () => {
-    try {
-      await HapticService.light();
-      const sql = SupabaseClientService.getSupabaseSqlSchema();
-      await Share.share({
-        message: sql,
-        title: 'Script SQL Supabase - Água Gestão Pro',
-      });
-      await HapticService.success();
-      setCopiadoSql(true);
-      setTimeout(() => setCopiadoSql(false), 4000);
-    } catch (e) {
-      Alert.alert('Erro', 'Não foi possível compartilhar o script SQL.');
     }
   };
 
@@ -313,7 +237,7 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
               <View>
                 <Text style={[styles.title, { color: colors.text }]}>Configurações</Text>
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                  Produtos, Nuvem, dados da empresa e aplicativo
+                  Produtos, distribuidora, segurança e licença
                 </Text>
               </View>
             </View>
@@ -358,23 +282,23 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
               </Text>
             </TouchableOpacity>
 
-            {/* ABA BANCO DE DADOS / NUVEM */}
+            {/* ABA TERMOS & PRIVACIDADE */}
             <TouchableOpacity
-              style={[styles.tabItem, abaAtiva === 'nuvem' && { borderBottomColor: colors.primary, borderBottomWidth: 3 }]}
+              style={[styles.tabItem, abaAtiva === 'termos' && { borderBottomColor: colors.primary, borderBottomWidth: 3 }]}
               onPress={() => {
                 HapticService.light();
-                setAbaAtiva('nuvem');
+                setAbaAtiva('termos');
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Cloud size={14} color={abaAtiva === 'nuvem' ? colors.primary : colors.textMuted} />
+                <ShieldCheck size={14} color={abaAtiva === 'termos' ? colors.primary : colors.textMuted} />
                 <Text
                   style={[
                     styles.tabText,
-                    { color: abaAtiva === 'nuvem' ? colors.primary : colors.textMuted, fontWeight: abaAtiva === 'nuvem' ? '800' : '600' },
+                    { color: abaAtiva === 'termos' ? colors.primary : colors.textMuted, fontWeight: abaAtiva === 'termos' ? '800' : '600' },
                   ]}
                 >
-                  Nuvem
+                  Privacidade
                 </Text>
               </View>
             </TouchableOpacity>
@@ -578,186 +502,161 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
             </ScrollView>
           )}
 
-          {/* ---------------- ABA 3: BANCO DE DADOS & NUVEM SUPABASE ---------------- */}
-          {abaAtiva === 'nuvem' && (
+          {/* ---------------- ABA 3: TERMOS, PRIVACIDADE & SEGURANÇA ---------------- */}
+          {abaAtiva === 'termos' && (
             <ScrollView style={styles.bodyScroll} showsVerticalScrollIndicator={false}>
-              {/* Card de Status da Nuvem */}
+              {/* Card de Segurança dos Dados */}
               <View style={[styles.cloudStatusCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <View
-                      style={[
-                        styles.statusDot,
-                        {
-                          backgroundColor:
-                            statusConexaoNuvem === 'conectado' ? '#10b981' : '#f59e0b',
-                        },
-                      ]}
-                    />
-                    <View>
-                      <Text style={[styles.cloudStatusTitle, { color: colors.text }]}>
-                        {statusConexaoNuvem === 'conectado' ? 'Nuvem Conectada' : 'Nuvem Não Conectada'}
-                      </Text>
-                      <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 1 }}>
-                        Última sincronização: {formatarUltimaSync(lastSyncTime)}
-                      </Text>
-                    </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#ecfdf5', alignItems: 'center', justifyContent: 'center' }}>
+                    <ShieldCheck size={24} color="#059669" />
                   </View>
-
-                  <Database size={22} color={statusConexaoNuvem === 'conectado' ? '#10b981' : colors.textMuted} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cloudStatusTitle, { color: colors.text }]}>
+                      Privacidade & Segurança
+                    </Text>
+                    <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                      Seus dados são protegidos com isolamento exclusivo por distribuidora e criptografia local.
+                    </Text>
+                  </View>
                 </View>
 
-                {/* Botão Sincronizar Agora */}
-                <TouchableOpacity
-                  style={[
-                    styles.syncNowBtn,
-                    {
-                      backgroundColor: statusConexaoNuvem === 'conectado' ? colors.primary : colors.border,
-                      opacity: statusConexaoNuvem === 'conectado' && !sincronizandoNuvem ? 1 : 0.7,
-                    },
-                  ]}
-                  onPress={handleSincronizarAgora}
-                  disabled={statusConexaoNuvem !== 'conectado' || sincronizandoNuvem}
-                  activeOpacity={0.8}
-                >
-                  {sincronizandoNuvem ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <RefreshCw size={16} color="#fff" />
-                      <Text style={styles.syncNowBtnText}>SINCRONIZAR TUDO AGORA</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-
-                {/* Badge de Sincronização em Segundo Plano Ativa */}
-                {statusConexaoNuvem === 'conectado' && (
-                  <View
-                    style={{
-                      backgroundColor: '#ecfdf5',
-                      borderRadius: 10,
-                      padding: 10,
-                      marginTop: 12,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 8,
-                      borderWidth: 1,
-                      borderColor: '#a7f3d0',
-                    }}
+                {/* Status da Sincronização */}
+                <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textMuted }}>ÚLTIMO BACKUP / SINCRONIZAÇÃO</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: colors.text, marginTop: 2 }}>
+                      {formatarUltimaSync(lastSyncTime)}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.syncNowBtn,
+                      {
+                        backgroundColor: colors.primary,
+                        marginTop: 0,
+                        paddingHorizontal: 14,
+                        paddingVertical: 8,
+                      },
+                    ]}
+                    onPress={handleSincronizarAgora}
+                    disabled={sincronizandoNuvem}
+                    activeOpacity={0.8}
                   >
-                    <Sparkles size={16} color="#059669" />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 12, fontWeight: '800', color: '#065f46' }}>
-                        Sincronização em 2º Plano Ativa
-                      </Text>
-                      <Text style={{ fontSize: 11, color: '#047857', marginTop: 1, lineHeight: 15 }}>
-                        O app sincroniza automaticamente a cada 3 min, ao reabrir e 2s após cada venda, despesa ou cliente cadastrado.
-                      </Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-
-              {/* Guia Rápido de Configuração */}
-              <View style={[styles.guideCard, { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                  <Sparkles size={18} color="#166534" />
-                  <Text style={{ fontSize: 14, fontWeight: '800', color: '#166534' }}>
-                    Como Ativar o Banco Supabase (Grátis)
-                  </Text>
+                    {sincronizandoNuvem ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <>
+                        <RefreshCw size={14} color="#fff" />
+                        <Text style={[styles.syncNowBtnText, { fontSize: 11 }]}>Sincronizar</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
                 </View>
-                <Text style={{ fontSize: 12, color: '#166534', lineHeight: 18 }}>
-                  1. Crie uma conta gratuita em <Text style={{ fontWeight: 'bold' }}>supabase.com</Text> e abra seu projeto.{'\n'}
-                  2. Clique no botão abaixo para copiar o script SQL completo do banco.{'\n'}
-                  3. No painel do Supabase, entre em <Text style={{ fontWeight: 'bold' }}>SQL Editor</Text>, cole o script e clique em <Text style={{ fontWeight: 'bold' }}>Run</Text>.{'\n'}
-                  4. Vá em <Text style={{ fontWeight: 'bold' }}>Project Settings → API</Text> e copie a <Text style={{ fontWeight: 'bold' }}>Project URL</Text> e a chave <Text style={{ fontWeight: 'bold' }}>anon public</Text> nos campos abaixo.
-                </Text>
-
-                {/* Botão Copiar Script SQL */}
-                <TouchableOpacity
-                  style={[
-                    styles.copySqlBtn,
-                    { backgroundColor: copiadoSql ? '#15803d' : '#16a34a' },
-                  ]}
-                  onPress={handleCopiarSql}
-                  activeOpacity={0.8}
-                >
-                  {copiadoSql ? (
-                    <>
-                      <CheckCircle2 size={16} color="#fff" />
-                      <Text style={styles.copySqlBtnText}>SCRIPT SQL COPIADO COM SUCESSO!</Text>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={16} color="#fff" />
-                      <Text style={styles.copySqlBtnText}>COPIAR SCRIPT SQL DO BANCO</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
               </View>
 
-              {/* Campos de Conexão */}
-              <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>
-                URL do Projeto Supabase *
+              {/* Seção Documentos Jurídicos e Políticas */}
+              <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textMuted, textTransform: 'uppercase', marginBottom: 8, marginTop: 10, letterSpacing: 0.5 }}>
+                Conformidade Legal & Termos
               </Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
-                value={supabaseUrl}
-                onChangeText={setSupabaseUrl}
-                placeholder="https://seu-projeto.supabase.co"
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholderTextColor={colors.textMuted}
-              />
 
-              <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>
-                Chave Pública (anon / public key) *
+              {/* Botão Termos de Uso */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderWidth: 1,
+                  borderRadius: 14,
+                  padding: 16,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 10,
+                }}
+                onPress={() => {
+                  setTermosInitialTab('termos');
+                  setShowTermosModal(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <FileText size={20} color={colors.primary} />
+                  <View>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: colors.text }}>Termos de Uso</Text>
+                    <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                      Contrato de licença e condições de utilização
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+
+              {/* Botão Política de Privacidade */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderWidth: 1,
+                  borderRadius: 14,
+                  padding: 16,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 16,
+                }}
+                onPress={() => {
+                  setTermosInitialTab('privacidade');
+                  setShowTermosModal(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <ShieldCheck size={20} color="#059669" />
+                  <View>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: colors.text }}>Política de Privacidade</Text>
+                    <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                      Em conformidade com a LGPD e Google Play
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+
+              {/* Seção Exclusão de Conta (Obrigatório Google Play) */}
+              <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textMuted, textTransform: 'uppercase', marginBottom: 8, marginTop: 10, letterSpacing: 0.5 }}>
+                Gerenciamento de Conta
               </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.surface,
-                    color: colors.text,
-                    borderColor: colors.border,
-                    fontSize: 12,
-                  },
-                ]}
-                value={supabaseAnonKey}
-                onChangeText={setSupabaseAnonKey}
-                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholderTextColor={colors.textMuted}
-              />
 
-              {/* Botões de Ação */}
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-                <TouchableOpacity
-                  style={[
-                    styles.actionSecondaryBtn,
-                    { borderColor: colors.border, backgroundColor: colors.surface },
-                  ]}
-                  onPress={handleTestarConexao}
-                  disabled={testandoConexao}
-                  activeOpacity={0.7}
-                >
-                  {testandoConexao ? (
-                    <ActivityIndicator size="small" color={colors.text} />
-                  ) : (
-                    <Text style={[styles.actionSecondaryText, { color: colors.text }]}>Testar Conexão</Text>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.actionPrimaryBtn, { backgroundColor: colors.primary }]}
-                  onPress={handleSalvarConexaoSupabase}
-                  activeOpacity={0.8}
-                >
-                  <Check size={16} color="#fff" />
-                  <Text style={styles.actionPrimaryText}>Salvar e Conectar</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#fef2f2',
+                  borderColor: '#fecaca',
+                  borderWidth: 1,
+                  borderRadius: 14,
+                  padding: 16,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+                onPress={() => {
+                  setTermosInitialTab('exclusao');
+                  setShowTermosModal(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                  <Trash2 size={20} color={colors.danger} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: colors.danger }}>
+                      Excluir Minha Conta e Dados
+                    </Text>
+                    <Text style={{ fontSize: 11, color: '#991b1b', marginTop: 2 }}>
+                      Apaga permanentemente todos os clientes, vendas e configurações
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={18} color={colors.danger} />
+              </TouchableOpacity>
 
               <View style={{ height: 40 }} />
             </ScrollView>
@@ -841,6 +740,13 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
           <SuperAdminModal
             visible={showSuperAdminModal}
             onClose={() => setShowSuperAdminModal(false)}
+          />
+
+          {/* Modal Termos de Uso e Política de Privacidade */}
+          <TermosPrivacidadeModal
+            visible={showTermosModal}
+            onClose={() => setShowTermosModal(false)}
+            initialTab={termosInitialTab}
           />
         </View>
       </View>

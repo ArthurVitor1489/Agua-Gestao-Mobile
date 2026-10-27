@@ -16,6 +16,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { HapticService } from '../../services/hapticService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { TermosPrivacidadeModal } from '../legal/TermosPrivacidadeModal';
 import {
   User as UserIcon,
   Mail,
@@ -50,6 +51,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [legalTab, setLegalTab] = useState<'termos' | 'privacidade'>('termos');
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -278,6 +281,32 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
             </TouchableOpacity>
           </View>
 
+          {/* Termos & Privacidade Disclaimer */}
+          <View style={{ marginTop: 14, marginBottom: 4, paddingHorizontal: 4 }}>
+            <Text style={{ fontSize: 11, color: colors.textMuted, textAlign: 'center', lineHeight: 16 }}>
+              Ao criar sua conta, você concorda com nossos{' '}
+              <Text
+                style={{ color: colors.primary, fontWeight: '700', textDecorationLine: 'underline' }}
+                onPress={() => {
+                  setLegalTab('termos');
+                  setShowLegalModal(true);
+                }}
+              >
+                Termos de Uso
+              </Text>
+              {' '}e{' '}
+              <Text
+                style={{ color: colors.primary, fontWeight: '700', textDecorationLine: 'underline' }}
+                onPress={() => {
+                  setLegalTab('privacidade');
+                  setShowLegalModal(true);
+                }}
+              >
+                Política de Privacidade
+              </Text>.
+            </Text>
+          </View>
+
           {/* Botão Cadastrar */}
           <TouchableOpacity
             style={[styles.registerBtn, { backgroundColor: colors.primary }]}
@@ -304,6 +333,13 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Modal Termos de Uso e Política de Privacidade */}
+      <TermosPrivacidadeModal
+        visible={showLegalModal}
+        onClose={() => setShowLegalModal(false)}
+        initialTab={legalTab}
+      />
     </KeyboardAvoidingView>
   );
 };

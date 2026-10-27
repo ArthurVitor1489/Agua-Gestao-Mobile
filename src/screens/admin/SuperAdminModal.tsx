@@ -41,13 +41,12 @@ interface SuperAdminModalProps {
   onClose: () => void;
 }
 
-const MASTER_PIN = '1489';
-
 export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ visible, onClose }) => {
   const { colors } = useTheme();
 
   const [autenticado, setAutenticado] = useState(false);
   const [pinDigitado, setPinDigitado] = useState('');
+  const [novoPin, setNovoPin] = useState('');
   const [distribuidoras, setDistribuidoras] = useState<DistribuidoraCliente[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -85,7 +84,8 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ visible, onClo
   };
 
   const handleVerificarPin = async () => {
-    if (pinDigitado === MASTER_PIN || pinDigitado === '14891489') {
+    const currentPin = CloudAdminService.getAdminPin();
+    if (pinDigitado.trim() === currentPin) {
       await HapticService.success();
       setAutenticado(true);
       carregarDados();
@@ -94,6 +94,16 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ visible, onClo
       Alert.alert('Acesso Negado', 'PIN de Administrador incorreto.');
       setPinDigitado('');
     }
+  };
+
+  const handleSalvarNovoPin = () => {
+    if (!novoPin || novoPin.trim().length < 4) {
+      Alert.alert('Atenção', 'O novo PIN deve ter pelo menos 4 dígitos ou caracteres.');
+      return;
+    }
+    CloudAdminService.saveAdminPin(novoPin.trim());
+    Alert.alert('Sucesso', 'PIN do Painel Master atualizado com sucesso!');
+    setNovoPin('');
   };
 
   const handleLiberarLicenca = async (dist: DistribuidoraCliente) => {
@@ -231,18 +241,18 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ visible, onClo
               <View style={[styles.lockCircle, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <Key size={32} color={colors.primary} />
               </View>
-              <Text style={[styles.authTitle, { color: colors.text }]}>Área Restrita (Arthur Master)</Text>
+              <Text style={[styles.authTitle, { color: colors.text }]}>Painel Master</Text>
               <Text style={[styles.authSubtitle, { color: colors.textMuted }]}>
                 Digite o PIN de segurança para gerenciar as distribuidoras clientes
               </Text>
 
               <TextInput
                 style={[styles.pinInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
-                placeholder="Digite o PIN (1489)"
+                placeholder="Digite o PIN de segurança"
                 placeholderTextColor={colors.textMuted}
                 secureTextEntry
                 keyboardType="numeric"
-                maxLength={8}
+                maxLength={12}
                 value={pinDigitado}
                 onChangeText={setPinDigitado}
                 onSubmitEditing={handleVerificarPin}
@@ -506,6 +516,36 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ visible, onClo
                     <CheckCircle2 size={18} color="#fff" />
                     <Text style={styles.saveCloudBtnText}>Salvar Configuração da Nuvem</Text>
                   </TouchableOpacity>
+
+                  {/* Alterar PIN Master */}
+                  <View style={[styles.cloudInfoCard, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 10 }]}>
+                    <Lock size={22} color={colors.primary} />
+                    <Text style={[styles.cloudInfoTitle, { color: colors.text }]}>
+                      Segurança do Painel Master
+                    </Text>
+                    <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4, marginBottom: 12 }}>
+                      Altere o PIN numérico exigido para abrir este painel. O PIN padrão inicial é 2026.
+                    </Text>
+
+                    <TextInput
+                      style={[styles.cloudInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                      placeholder="Novo PIN (ex: 4 a 8 dígitos)"
+                      placeholderTextColor={colors.textMuted}
+                      value={novoPin}
+                      onChangeText={setNovoPin}
+                      keyboardType="numeric"
+                      secureTextEntry
+                      maxLength={12}
+                    />
+
+                    <TouchableOpacity
+                      style={[styles.saveCloudBtn, { backgroundColor: '#10b981', marginTop: 12, marginBottom: 4 }]}
+                      onPress={handleSalvarNovoPin}
+                    >
+                      <CheckCircle2 size={18} color="#fff" />
+                      <Text style={styles.saveCloudBtnText}>Atualizar PIN Master</Text>
+                    </TouchableOpacity>
+                  </View>
 
                   {/* SQL Helper */}
                   <View style={[styles.sqlBox, { backgroundColor: '#1e293b' }]}>

@@ -30,15 +30,63 @@ export const CloudAdminService = {
         CREATE TABLE IF NOT EXISTS admin_cloud_config (
           id TEXT PRIMARY KEY,
           url TEXT NOT NULL,
-          apiKey TEXT NOT NULL
+          apiKey TEXT NOT NULL,
+          adminPin TEXT
         );
       `);
+      try { db.execSync('ALTER TABLE admin_cloud_config ADD COLUMN adminPin TEXT;'); } catch {}
       const row = db.getFirstSync<any>('SELECT * FROM admin_cloud_config LIMIT 1');
       if (row) {
         return { url: row.url, apiKey: row.apiKey };
       }
     } catch {}
     return { url: DEFAULT_SUPABASE_URL, apiKey: DEFAULT_SUPABASE_KEY };
+  },
+
+  // Obter PIN de acesso administrativo do Painel Master
+  getAdminPin(): string {
+    const db = getDatabase();
+    try {
+      db.execSync(`
+        CREATE TABLE IF NOT EXISTS admin_cloud_config (
+          id TEXT PRIMARY KEY,
+          url TEXT NOT NULL,
+          apiKey TEXT NOT NULL,
+          adminPin TEXT
+        );
+      `);
+      try { db.execSync('ALTER TABLE admin_cloud_config ADD COLUMN adminPin TEXT;'); } catch {}
+      const row = db.getFirstSync<any>('SELECT adminPin FROM admin_cloud_config LIMIT 1');
+      if (row?.adminPin) return row.adminPin;
+    } catch {}
+    return '2026'; // PIN padrão seguro para o administrador
+  },
+
+  // Salvar novo PIN de administrador
+  saveAdminPin(newPin: string): void {
+    const db = getDatabase();
+    try {
+      db.execSync(`
+        CREATE TABLE IF NOT EXISTS admin_cloud_config (
+          id TEXT PRIMARY KEY,
+          url TEXT NOT NULL,
+          apiKey TEXT NOT NULL,
+          adminPin TEXT
+        );
+      `);
+      try { db.execSync('ALTER TABLE admin_cloud_config ADD COLUMN adminPin TEXT;'); } catch {}
+      const existing = db.getFirstSync<any>('SELECT * FROM admin_cloud_config WHERE id = "config_nuvem"');
+      if (existing) {
+        db.runSync('UPDATE admin_cloud_config SET adminPin = ? WHERE id = "config_nuvem"', [newPin.trim()]);
+      } else {
+        db.runSync(
+          'INSERT INTO admin_cloud_config (id, url, apiKey, adminPin) VALUES ("config_nuvem", ?, ?, ?)',
+          [DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_KEY, newPin.trim()]
+        );
+      }
+    } catch (e) {
+      console.warn('Erro ao salvar admin pin:', e);
+    }
   },
 
   // Salvar configurações personalizadas da nuvem

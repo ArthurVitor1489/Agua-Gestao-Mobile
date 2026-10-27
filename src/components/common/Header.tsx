@@ -24,7 +24,7 @@ export const Header: React.FC = () => {
   const insets = useSafeAreaInsets();
   const [nomeDistribuidora, setNomeDistribuidora] = useState('Água Gestão Pro');
   const [showConfigModal, setShowConfigModal] = useState(false);
-  const [modalInitialTab, setModalInitialTab] = useState<'produtos' | 'distribuidora' | 'nuvem' | 'licenca'>('produtos');
+  const [modalInitialTab, setModalInitialTab] = useState<'produtos' | 'distribuidora' | 'termos' | 'licenca'>('produtos');
   const [isCloudConfigured, setIsCloudConfigured] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -65,7 +65,7 @@ export const Header: React.FC = () => {
         CloudSyncService.sincronizarTudo();
       }
     } else {
-      setModalInitialTab('nuvem');
+      setModalInitialTab('termos');
       setShowConfigModal(true);
     }
   };

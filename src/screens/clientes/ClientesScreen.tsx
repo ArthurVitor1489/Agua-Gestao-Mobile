@@ -100,24 +100,6 @@ export const ClientesScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
     Linking.openURL(`tel:${fone.replace(/\D/g, '')}`);
   };
 
-  const handleCriarTesteRecompra = async () => {
-    await HapticService.medium();
-    ClientesService.criarDadoTesteRecompra();
-    await HapticService.success();
-    carregarDados();
-    Alert.alert(
-      'Exemplo de Teste Criado! 💧',
-      'Criamos a cliente "Dona Maria" com um pedido entregue há 18 dias. Agora você pode testar o disparo de lembrete no WhatsApp e o alerta no Dashboard!'
-    );
-  };
-
-  const handleRemoverTesteRecompra = async () => {
-    await HapticService.light();
-    ClientesService.removerDadoTesteRecompra();
-    await HapticService.success();
-    carregarDados();
-  };
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Abas */}
@@ -278,15 +260,6 @@ export const ClientesScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
             <Text style={{ color: '#92400e', fontSize: 13, lineHeight: 18 }}>
               💡 O algoritmo analisa o histórico de pedidos de cada cliente e calcula o intervalo médio de consumo. Dispare mensagens no WhatsApp com 1 toque antes que ele compre do concorrente!
             </Text>
-            {recompra.some((i) => i.clienteId === 'cli-teste-recompra') && (
-              <TouchableOpacity
-                style={{ marginTop: 8, alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 10, backgroundColor: '#fde68a', borderRadius: 8 }}
-                onPress={handleRemoverTesteRecompra}
-                activeOpacity={0.7}
-              >
-                <Text style={{ fontSize: 11, fontWeight: '800', color: '#92400e' }}>🗑️ Remover Cliente de Teste</Text>
-              </TouchableOpacity>
-            )}
           </View>
 
           <FlatList
@@ -352,14 +325,6 @@ export const ClientesScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
                 <Text style={{ color: colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: 6, marginHorizontal: 16 }}>
                   Os clientes aparecem aqui automaticamente quando o garrafão deles estiver acabando (ciclo de 15 dias ou média histórica).
                 </Text>
-                <TouchableOpacity
-                  style={[styles.gerarTesteBtn, { backgroundColor: colors.primary }]}
-                  onPress={handleCriarTesteRecompra}
-                  activeOpacity={0.8}
-                >
-                  <Sparkles size={16} color="#fff" />
-                  <Text style={styles.gerarTesteBtnText}>GERAR CLIENTE DE TESTE (18 DIAS ATRÁS)</Text>
-                </TouchableOpacity>
               </View>
             }
           />
@@ -508,21 +473,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 13,
     fontWeight: '800',
-  },
-  gerarTesteBtn: {
-    marginTop: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-    gap: 8,
-  },
-  gerarTesteBtnText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5,
   },
 });

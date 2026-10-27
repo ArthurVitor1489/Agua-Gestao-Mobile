@@ -33,8 +33,6 @@
         "BLUETOOTH_SCAN",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-        "USE_BIOMETRIC",
-        "USE_FINGERPRINT",
         "VIBRATE"
       ],
       "blockedPermissions": []
@@ -44,12 +42,6 @@
       "bundler": "metro"
     },
     "plugins": [
-      [
-        "expo-local-authentication",
-        {
-          "faceIDPermission": "Permitir autenticação biométrica para login rápido no Água Gestão."
-        }
-      ],
       [
         "expo-location",
         {
