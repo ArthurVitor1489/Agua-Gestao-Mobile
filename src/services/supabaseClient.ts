@@ -190,167 +190,156 @@ export const SupabaseClientService = {
    */
   getSupabaseSqlSchema(): string {
     return `-- ==============================================================================
--- ÁGUA GESTÃO PRO - SCHEMA SUPABASE COMPLETO
+-- ÁGUA GESTÃO PRO - SCHEMA SUPABASE COMPLETO & UNIFICADO (MULTI-TENANT)
 -- Copie este script inteiro e cole no SQL Editor do seu painel Supabase
 -- ==============================================================================
 
 -- 1. Tabela de Configuração da Distribuidora
 CREATE TABLE IF NOT EXISTS public.configuracao (
   id TEXT PRIMARY KEY,
-  empresaId TEXT,
-  nomeDistribuidora TEXT NOT NULL,
-  telefone TEXT,
-  whatsapp TEXT,
-  chavePix TEXT,
-  cidade TEXT,
-  estado TEXT,
-  trialStartDate TEXT,
-  isSubscribed INTEGER DEFAULT 0,
-  plano TEXT DEFAULT 'TRIAL_14_DIAS',
-  createdAt TEXT,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+  "empresaId" TEXT,
+  "nomeDistribuidora" TEXT,
+  "telefone" TEXT,
+  "whatsapp" TEXT,
+  "chavePix" TEXT,
+  "cidade" TEXT,
+  "estado" TEXT,
+  "trialStartDate" TEXT,
+  "isSubscribed" INTEGER DEFAULT 0,
+  "plano" TEXT DEFAULT 'TRIAL_14_DIAS',
+  "createdAt" TEXT,
+  "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
 -- 2. Tabela de Produtos
 CREATE TABLE IF NOT EXISTS public.produtos (
   id TEXT PRIMARY KEY,
-  empresaId TEXT,
-  nome TEXT NOT NULL,
-  categoria TEXT NOT NULL,
-  precoVenda NUMERIC(10, 2) NOT NULL,
-  custo NUMERIC(10, 2) DEFAULT 0,
-  estoqueAtual INTEGER DEFAULT 0,
-  unidade TEXT DEFAULT 'UN',
-  ativo INTEGER DEFAULT 1,
-  createdAt TEXT,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+  "empresaId" TEXT,
+  "nome" TEXT NOT NULL,
+  "categoria" TEXT NOT NULL,
+  "precoVenda" NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  "custo" NUMERIC(10, 2) DEFAULT 0,
+  "estoqueAtual" INTEGER DEFAULT 0,
+  "unidade" TEXT DEFAULT 'UN',
+  "ativo" INTEGER DEFAULT 1,
+  "createdAt" TEXT,
+  "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
 -- 3. Tabela de Estoque de Garrafões (Regra ANP)
 CREATE TABLE IF NOT EXISTS public.estoque_garrafoes (
   id TEXT PRIMARY KEY,
-  empresaId TEXT,
-  anoFabricacao INTEGER NOT NULL,
-  anoValidade INTEGER NOT NULL,
-  quantidade INTEGER NOT NULL,
-  status TEXT NOT NULL,
-  observacoes TEXT,
-  createdAt TEXT,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+  "empresaId" TEXT,
+  "anoFabricacao" INTEGER NOT NULL DEFAULT 2024,
+  "anoValidade" INTEGER NOT NULL DEFAULT 2027,
+  "quantidade" INTEGER NOT NULL DEFAULT 0,
+  "status" TEXT NOT NULL DEFAULT 'CHEIO',
+  "observacoes" TEXT,
+  "createdAt" TEXT,
+  "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
 -- 4. Tabela de Clientes
 CREATE TABLE IF NOT EXISTS public.clientes (
   id TEXT PRIMARY KEY,
-  empresaId TEXT,
-  nome TEXT NOT NULL,
-  cpfCnpj TEXT,
-  telefone TEXT,
-  whatsapp TEXT,
-  logradouro TEXT,
-  numero TEXT,
-  bairro TEXT,
-  cidade TEXT,
-  estado TEXT,
-  pontoReferencia TEXT,
-  latitude DOUBLE PRECISION,
-  longitude DOUBLE PRECISION,
-  ativo INTEGER DEFAULT 1,
-  precosEspeciaisJson TEXT,
-  createdAt TEXT,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+  "empresaId" TEXT,
+  "nome" TEXT NOT NULL,
+  "cpfCnpj" TEXT,
+  "telefone" TEXT,
+  "whatsapp" TEXT,
+  "logradouro" TEXT,
+  "numero" TEXT,
+  "bairro" TEXT,
+  "cidade" TEXT,
+  "estado" TEXT,
+  "pontoReferencia" TEXT,
+  "latitude" DOUBLE PRECISION,
+  "longitude" DOUBLE PRECISION,
+  "ativo" INTEGER DEFAULT 1,
+  "precosEspeciaisJson" TEXT,
+  "createdAt" TEXT,
+  "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
 -- 5. Tabela de Pedidos
 CREATE TABLE IF NOT EXISTS public.pedidos (
   id TEXT PRIMARY KEY,
-  empresaId TEXT,
-  numero INTEGER NOT NULL,
-  clienteId TEXT,
-  clienteNome TEXT NOT NULL,
-  clienteTelefone TEXT,
-  clienteEndereco TEXT,
-  data TEXT NOT NULL,
-  valorTotal NUMERIC(10, 2) NOT NULL,
-  desconto NUMERIC(10, 2) DEFAULT 0,
-  acrescimo NUMERIC(10, 2) DEFAULT 0,
-  status TEXT NOT NULL,
-  formaPagamento TEXT NOT NULL,
-  trocoPara NUMERIC(10, 2),
-  observacoes TEXT,
-  itensJson TEXT NOT NULL,
-  createdAt TEXT,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+  "empresaId" TEXT,
+  "numero" INTEGER NOT NULL DEFAULT 1,
+  "clienteId" TEXT,
+  "clienteNome" TEXT NOT NULL,
+  "clienteTelefone" TEXT,
+  "clienteEndereco" TEXT,
+  "data" TEXT NOT NULL,
+  "valorTotal" NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  "desconto" NUMERIC(10, 2) DEFAULT 0,
+  "acrescimo" NUMERIC(10, 2) DEFAULT 0,
+  "status" TEXT NOT NULL DEFAULT 'PENDENTE',
+  "formaPagamento" TEXT NOT NULL DEFAULT 'PIX',
+  "trocoPara" NUMERIC(10, 2),
+  "observacoes" TEXT,
+  "itensJson" TEXT NOT NULL DEFAULT '[]',
+  "createdAt" TEXT,
+  "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
 -- 6. Tabela de Fiados (Caderneta Digital)
 CREATE TABLE IF NOT EXISTS public.fiados (
   id TEXT PRIMARY KEY,
-  empresaId TEXT,
-  clienteId TEXT NOT NULL,
-  clienteNome TEXT NOT NULL,
-  pedidoId TEXT,
-  pedidoNumero INTEGER,
-  valorOriginal NUMERIC(10, 2) NOT NULL,
-  valorPago NUMERIC(10, 2) DEFAULT 0,
-  saldo NUMERIC(10, 2) NOT NULL,
-  situacao TEXT NOT NULL,
-  createdAt TEXT,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+  "empresaId" TEXT,
+  "clienteId" TEXT NOT NULL,
+  "clienteNome" TEXT NOT NULL,
+  "pedidoId" TEXT,
+  "pedidoNumero" INTEGER,
+  "valorOriginal" NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  "valorPago" NUMERIC(10, 2) DEFAULT 0,
+  "saldo" NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  "situacao" TEXT NOT NULL DEFAULT 'ABERTO',
+  "createdAt" TEXT,
+  "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
 -- 7. Tabela de Despesas Operacionais
 CREATE TABLE IF NOT EXISTS public.despesas (
   id TEXT PRIMARY KEY,
-  empresaId TEXT,
-  descricao TEXT NOT NULL,
-  categoria TEXT NOT NULL,
-  valor NUMERIC(10, 2) NOT NULL,
-  data TEXT NOT NULL,
-  formaPagamento TEXT NOT NULL,
-  createdAt TEXT,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+  "empresaId" TEXT,
+  "descricao" TEXT NOT NULL,
+  "categoria" TEXT NOT NULL,
+  "valor" NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  "data" TEXT NOT NULL,
+  "formaPagamento" TEXT NOT NULL DEFAULT 'DINHEIRO',
+  "createdAt" TEXT,
+  "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
 -- 8. Tabela de Movimentações de Estoque (Auditoria)
 CREATE TABLE IF NOT EXISTS public.movimentacoes_estoque (
   id TEXT PRIMARY KEY,
-  empresaId TEXT,
-  produtoId TEXT,
-  produtoNome TEXT NOT NULL,
-  tipo TEXT NOT NULL,
-  quantidade INTEGER NOT NULL,
-  motivo TEXT,
-  data TEXT NOT NULL,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+  "empresaId" TEXT,
+  "produtoId" TEXT,
+  "produtoNome" TEXT NOT NULL,
+  "tipo" TEXT NOT NULL,
+  "quantidade" INTEGER NOT NULL DEFAULT 0,
+  "motivo" TEXT,
+  "data" TEXT NOT NULL,
+  "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
 -- 9. Tabela de Quitações de Fiados (Recebimentos)
 CREATE TABLE IF NOT EXISTS public.quitacoes_fiado (
   id TEXT PRIMARY KEY,
-  empresaId TEXT,
-  fiadoId TEXT NOT NULL,
-  pedidoId TEXT,
-  clienteId TEXT,
-  clienteNome TEXT,
-  valor NUMERIC(10, 2) NOT NULL,
-  formaPagamento TEXT NOT NULL,
-  data TEXT NOT NULL,
-  observacoes TEXT,
-  createdAt TEXT,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+  "empresaId" TEXT,
+  "fiadoId" TEXT NOT NULL,
+  "pedidoId" TEXT,
+  "clienteId" TEXT,
+  "clienteNome" TEXT,
+  "valor" NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  "formaPagamento" TEXT NOT NULL DEFAULT 'PIX',
+  "data" TEXT NOT NULL,
+  "observacoes" TEXT,
+  "createdAt" TEXT,
+  "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
-
--- Migrações seguras de empresaId caso o banco já existisse no Supabase
-ALTER TABLE public.configuracao ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
-ALTER TABLE public.produtos ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
-ALTER TABLE public.estoque_garrafoes ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
-ALTER TABLE public.clientes ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
-ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
-ALTER TABLE public.fiados ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
-ALTER TABLE public.despesas ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
-ALTER TABLE public.movimentacoes_estoque ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
-ALTER TABLE public.quitacoes_fiado ADD COLUMN IF NOT EXISTS "empresaId" TEXT;
 
 -- Índices de Alta Performance por Empresa (Multi-tenant)
 CREATE INDEX IF NOT EXISTS idx_pedidos_empresa ON public.pedidos("empresaId");
@@ -359,10 +348,7 @@ CREATE INDEX IF NOT EXISTS idx_produtos_empresa ON public.produtos("empresaId");
 CREATE INDEX IF NOT EXISTS idx_fiados_empresa ON public.fiados("empresaId");
 CREATE INDEX IF NOT EXISTS idx_quitacoes_empresa ON public.quitacoes_fiado("empresaId");
 
--- ==============================================================================
--- POLÍTICAS DE ACESSO (Row Level Security - RLS)
--- Permite leitura e gravação automática usando a chave anon pública do seu app
--- ==============================================================================
+-- Políticas de Acesso RLS
 ALTER TABLE public.configuracao ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.produtos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.estoque_garrafoes ENABLE ROW LEVEL SECURITY;
@@ -399,13 +385,6 @@ CREATE POLICY "Acesso Anon movimentacoes_estoque" ON public.movimentacoes_estoqu
 
 DROP POLICY IF EXISTS "Acesso Anon quitacoes_fiado" ON public.quitacoes_fiado;
 CREATE POLICY "Acesso Anon quitacoes_fiado" ON public.quitacoes_fiado FOR ALL USING (true) WITH CHECK (true);
-
--- Ativar Supabase Realtime para tabelas chave
-ALTER PUBLICATION supabase_realtime ADD TABLE public.pedidos;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.produtos;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.clientes;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.fiados;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.quitacoes_fiado;
 `;
   },
 };
