@@ -21,7 +21,6 @@ import { SuperAdminModal } from '../admin/SuperAdminModal';
 import {
   Lock,
   Mail,
-  Fingerprint,
   Droplets,
   ArrowRight,
   Sparkles,
@@ -36,7 +35,7 @@ interface LoginScreenProps {
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }) => {
   const { colors } = useTheme();
-  const { login, loginWithBiometrics, isLoading } = useAuth();
+  const { login, isLoading } = useAuth();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -44,7 +43,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [hasBiometrics, setHasBiometrics] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [showSuperAdminModal, setShowSuperAdminModal] = useState(false);
 
@@ -70,8 +68,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
   };
 
   useEffect(() => {
-    checkBiometrics();
-
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
@@ -92,18 +88,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
     setTimeout(() => {
       scrollViewRef.current?.scrollTo({ y: yOffset, animated: true });
     }, 120);
-  };
-
-  const checkBiometrics = async () => {
-    const supported = await AuthService.isBiometricsSupported();
-    setHasBiometrics(supported);
-
-    if (supported) {
-      const { hasToken } = await AuthService.checkStoredSession();
-      if (hasToken) {
-        loginWithBiometrics();
-      }
-    }
   };
 
   const handleLogin = async () => {
@@ -225,18 +209,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
               </>
             )}
           </TouchableOpacity>
-
-          {/* Biometria (se suportado) */}
-          {hasBiometrics && (
-            <TouchableOpacity
-              style={[styles.bioBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={loginWithBiometrics}
-              activeOpacity={0.8}
-            >
-              <Fingerprint size={20} color={colors.primary} />
-              <Text style={[styles.bioBtnText, { color: colors.text }]}>Entrar com Biometria</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Rodapé: Link para Cadastro */}
@@ -355,20 +327,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
     letterSpacing: 0.5,
-  },
-  bioBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginTop: 10,
-    gap: 8,
-  },
-  bioBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
   },
   footerRow: {
     flexDirection: 'row',
