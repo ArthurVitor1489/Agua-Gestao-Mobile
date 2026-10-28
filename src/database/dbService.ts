@@ -151,11 +151,27 @@ export const LocalAuthService = {
           createdAt TEXT NOT NULL
         );
       `);
-      const row = db.getFirstSync<any>(
+      let row = db.getFirstSync<any>(
         'SELECT * FROM usuarios WHERE email = ? AND senha = ? AND ativo = 1',
         [email.toLowerCase().trim(), pass]
       );
-      if (!row) return null;
+
+      // Auto-provisionamento de conta de teste para o revisor da Google Play Store
+      if (!row) {
+        const emailLower = email.toLowerCase().trim();
+        if ((emailLower === 'teste@aguagestao.com.br' || emailLower === 'demo@aguagestao.com.br') && pass === '123456') {
+          return LocalAuthService.cadastrar({
+            nome: 'Distribuidora Demonstração',
+            email: emailLower,
+            senha: pass,
+            nomeDistribuidora: 'Água & Gás Modelo',
+            whatsapp: '(11) 99999-9999',
+            cidade: 'São Paulo',
+            estado: 'SP',
+          });
+        }
+        return null;
+      }
 
       const cfg = ConfigService.getConfig();
       const now = new Date().toISOString();
