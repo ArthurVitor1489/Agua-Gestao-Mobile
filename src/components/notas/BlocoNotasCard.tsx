@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { NotasService } from '../../database/dbService';
@@ -15,6 +16,7 @@ import {
   StickyNote,
   Plus,
   Pin,
+  Trash2,
   CheckCircle2,
   Circle,
   FileText,
@@ -64,6 +66,25 @@ export const BlocoNotasCard: React.FC<BlocoNotasCardProps> = ({ notas, onRefresh
     onRefresh();
   };
 
+  const handleExcluirNota = (id: string, titulo: string) => {
+    Alert.alert(
+      'Excluir Nota',
+      `Deseja realmente apagar "${titulo}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () => {
+            NotasService.excluirNota(id);
+            HapticService.medium();
+            onRefresh();
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={[styles.containerCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
       {/* Header da Seção */}
@@ -73,18 +94,11 @@ export const BlocoNotasCard: React.FC<BlocoNotasCardProps> = ({ notas, onRefresh
             <StickyNote size={20} color="#b45309" />
           </View>
           <View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>
-                Bloco de Notas & Recados
-              </Text>
-              {notas.length > 0 && (
-                <View style={[styles.badgeCount, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <Text style={[styles.badgeText, { color: colors.primary }]}>{notas.length}</Text>
-                </View>
-              )}
-            </View>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              Bloco de Notas
+            </Text>
             <Text style={[styles.cardSubtitle, { color: colors.textMuted }]}>
-              Lembretes da equipe e afazeres do dia
+              Lembretes
             </Text>
           </View>
         </View>
@@ -170,7 +184,7 @@ export const BlocoNotasCard: React.FC<BlocoNotasCardProps> = ({ notas, onRefresh
                     </Text>
                   </TouchableOpacity>
 
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     {/* Botão Fixar */}
                     <TouchableOpacity
                       style={[
@@ -185,6 +199,18 @@ export const BlocoNotasCard: React.FC<BlocoNotasCardProps> = ({ notas, onRefresh
                       <Pin
                         size={15}
                         color={nota.fixado ? '#B45309' : (isDark ? colors.textMuted : '#64748b')}
+                      />
+                    </TouchableOpacity>
+
+                    {/* Botão Excluir Nota */}
+                    <TouchableOpacity
+                      style={styles.doneIconBtn}
+                      onPress={() => handleExcluirNota(nota.id, nota.titulo)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Trash2
+                        size={15}
+                        color={isDark ? colors.textMuted : '#ef4444'}
                       />
                     </TouchableOpacity>
 
