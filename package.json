@@ -1,6 +1,6 @@
 {
   "name": "agua-gestao-mobile",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "App Android Profissional para Distribuidoras de Água Mineral e Gás - Água Gestão SaaS",
   "main": "index.js",
   "scripts": {
