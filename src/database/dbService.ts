@@ -49,6 +49,7 @@ export const LocalAuthService = {
     whatsapp?: string;
     cidade?: string;
     estado?: string;
+    empresaId?: string;
   }): User {
     const db = getDatabase();
     const now = new Date().toISOString();
@@ -72,7 +73,7 @@ export const LocalAuthService = {
     try { db.execSync("ALTER TABLE usuarios ADD COLUMN role TEXT DEFAULT 'ADMIN';"); } catch {}
 
     const emailNorm = payload.email.toLowerCase().trim();
-    const empresaId = 'emp-' + Math.random().toString(36).slice(2, 9) + '-' + Date.now().toString(36);
+    const empresaId = payload.empresaId || 'emp-' + Math.random().toString(36).slice(2, 9) + '-' + Date.now().toString(36);
 
     // 1. Verificar se já existe conta com esse e-mail
     const existing = db.getFirstSync<any>('SELECT id FROM usuarios WHERE email = ?', [emailNorm]);

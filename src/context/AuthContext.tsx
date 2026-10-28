@@ -4,6 +4,7 @@ import { LocalAuthService, ConfigService } from '../database/dbService';
 import { LocalStorage } from '../database/localStorage';
 import { AuthService } from '../services/authService';
 import { HapticService } from '../services/hapticService';
+import { CloudSyncService } from '../services/cloudSyncService';
 
 export interface RegisterPayload {
   nome: string;
@@ -70,15 +71,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (payload: RegisterPayload): Promise<{ success: boolean; error?: string }> => {
     try {
       setIsLoading(true);
+
+      // 1. Verificar se a empresa/conta já existe na nuvem (caso o usuário tenha reinstalado o app)
+      const existingCloud = await CloudSyncService.buscarEmpresaExistenteNaNuvem({
+        email: payload.email,
+        whatsapp: payload.whatsapp,
+        nomeDistribuidora: payload.nomeDistribuidora,
+      });
+
       const novoUser = LocalAuthService.cadastrar({
         nome: payload.nome,
         email: payload.email,
         senha: payload.senha,
-        nomeDistribuidora: payload.nomeDistribuidora,
+        nomeDistribuidora: existingCloud?.configRow?.nomeDistribuidora || payload.nomeDistribuidora,
+        whatsapp: payload.whatsapp || existingCloud?.configRow?.whatsapp,
+        cidade: payload.cidade || existingCloud?.configRow?.cidade,
+        estado: payload.estado || existingCloud?.configRow?.estado,
+        empresaId: existingCloud?.empresaId,
+      });
+
+      // 2. Salvar credenciais de acesso na nuvem para futuros logins em qualquer aparelho
+      await CloudSyncService.salvarContaNaNuvem({
+        id: novoUser.id,
+        nome: payload.nome,
+        email: payload.email,
+        senha: payload.senha,
+        empresaId: novoUser.empresaId || ConfigService.getActiveEmpresaId(),
+        empresaNome: existingCloud?.configRow?.nomeDistribuidora || payload.nomeDistribuidora,
         whatsapp: payload.whatsapp,
         cidade: payload.cidade,
         estado: payload.estado,
       });
+
+      // 3. Se a empresa já existia na nuvem, baixar todos os dados dela imediatamente
+      if (existingCloud?.empresaId) {
+        await CloudSyncService.pullEmpresaDaNuvem(existingCloud.empresaId);
+      } else {
+        CloudSyncService.agendarSincronizacaoEmSegundoPlano();
+      }
 
       setUser(novoUser);
       setToken('local-session-token');
@@ -102,15 +132,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     try {
       setIsLoading(true);
+
+      // 1. Tentar login no banco local SQLite
       const userFound = LocalAuthService.login(email, pass);
       if (userFound) {
         setUser(userFound);
         setToken('local-session-token');
         await LocalStorage.setUser(userFound);
         await LocalStorage.setToken('local-session-token');
+
+        // Garantir que a conta esteja salva na nuvem e sincronizar dados
+        CloudSyncService.salvarContaNaNuvem({
+          id: userFound.id,
+          nome: userFound.nome,
+          email: userFound.email,
+          senha: pass,
+          empresaId: userFound.empresaId || ConfigService.getActiveEmpresaId(),
+          empresaNome: userFound.empresa?.nome || 'Minha Distribuidora',
+        }).catch(() => {});
+        CloudSyncService.sincronizarTudo().catch(() => {});
+
         await HapticService.success();
         return { success: true };
       }
+
+      // 2. Se não achou localmente (ex: desinstalou o app, limpou dados/cache ou trocou de celular),
+      // buscar e restaurar automaticamente a conta e todos os dados direto do Supabase!
+      const cloudAuth = await CloudSyncService.autenticarContaNaNuvem(email, pass);
+      if (cloudAuth.success && cloudAuth.user) {
+        setUser(cloudAuth.user);
+        setToken('local-session-token');
+        await LocalStorage.setUser(cloudAuth.user);
+        await LocalStorage.setToken('local-session-token');
+        await HapticService.success();
+        return { success: true };
+      }
+
+      if (cloudAuth.wrongPassword) {
+        await HapticService.error();
+        return { success: false, error: 'Senha incorreta para este e-mail.' };
+      }
+
       await HapticService.error();
       return { success: false, error: 'E-mail ou senha incorretos.' };
     } catch (err: any) {

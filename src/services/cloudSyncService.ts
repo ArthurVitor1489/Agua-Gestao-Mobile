@@ -193,12 +193,48 @@ export const CloudSyncService = {
       // ---------------------------------------------------------
       this.notifyListeners('syncing', 'Enviando dados locais para a nuvem...');
 
-      // 1.1 Configuração
+      // 1.1 Configuração + Credenciais de Acesso na Nuvem
       try {
-        const configs = db.getAllSync<any>('SELECT * FROM configuracao').map((c) => ({
-          ...c,
-          empresaId: c.empresaId || tenantEmpresaId,
-        }));
+        const configs = db
+          .getAllSync<any>("SELECT * FROM configuracao WHERE id NOT LIKE 'auth_user_%'")
+          .map((c) => ({
+            ...c,
+            empresaId: c.empresaId || tenantEmpresaId,
+          }));
+
+        // Também sincroniza o usuário ativo em configuracao (id = auth_user_<email>) para permitir login após reinstalar o app
+        try {
+          const users = db.getAllSync<any>('SELECT * FROM usuarios WHERE ativo = 1');
+          const mainCfg = configs[0];
+          for (const u of users) {
+            if (u.email) {
+              const emailNorm = String(u.email).toLowerCase().trim();
+              configs.push({
+                id: `auth_user_${emailNorm}`,
+                empresaId: u.empresaId && u.empresaId !== 'local' ? u.empresaId : tenantEmpresaId,
+                nomeDistribuidora: mainCfg?.nomeDistribuidora || u.empresaNome || 'Minha Distribuidora',
+                telefone: JSON.stringify({
+                  id: u.id,
+                  nome: u.nome,
+                  email: emailNorm,
+                  senha: u.senha,
+                  role: u.role || 'ADMIN',
+                  empresaId: u.empresaId && u.empresaId !== 'local' ? u.empresaId : tenantEmpresaId,
+                  empresaNome: mainCfg?.nomeDistribuidora || u.empresaNome || 'Minha Distribuidora',
+                }),
+                whatsapp: mainCfg?.whatsapp || '',
+                chavePix: '',
+                cidade: mainCfg?.cidade || '',
+                estado: mainCfg?.estado || 'PB',
+                trialStartDate: mainCfg?.trialStartDate || now,
+                isSubscribed: mainCfg?.isSubscribed ?? 0,
+                plano: 'AUTH_USER',
+                createdAt: u.createdAt || now,
+              });
+            }
+          }
+        } catch {}
+
         if (configs.length > 0) {
           const { error } = await supabase.from('configuracao').upsert(configs, { onConflict: 'id' });
           if (!error) totalPushed += configs.length;
@@ -589,6 +625,35 @@ export const CloudSyncService = {
         console.warn('Sync pull quitacoes_fiado:', err);
       }
 
+      // 2.8 Movimentações de Estoque da Nuvem
+      try {
+        const { data: cloudMovs, error: mErr } = await supabase
+          .from('movimentacoes_estoque')
+          .select('*')
+          .eq('empresaId', tenantEmpresaId);
+
+        if (!mErr && cloudMovs && cloudMovs.length > 0) {
+          for (const m of cloudMovs) {
+            db.runSync(
+              `INSERT INTO movimentacoes_estoque (id, empresaId, produtoId, produtoNome, tipo, quantidade, motivo, data)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(id) DO UPDATE SET
+                 empresaId = excluded.empresaId,
+                 produtoId = excluded.produtoId,
+                 produtoNome = excluded.produtoNome,
+                 tipo = excluded.tipo,
+                 quantidade = excluded.quantidade,
+                 motivo = excluded.motivo,
+                 data = excluded.data;`,
+              [m.id, m.empresaId || tenantEmpresaId, m.produtoId || null, m.produtoNome || 'Água Mineral', m.tipo || 'AJUSTE', m.quantidade ?? 0, m.motivo || null, m.data || now]
+            );
+            totalPulled++;
+          }
+        }
+      } catch (err) {
+        console.warn('Sync pull movimentacoes_estoque:', err);
+      }
+
       // Atualiza timestamp da sincronização
       SupabaseClientService.updateLastSyncTime(now);
 
@@ -816,6 +881,440 @@ export const CloudSyncService = {
       }
     } catch (e) {
       console.warn('Erro ao excluir dados na nuvem:', e);
+    }
+  },
+
+  /**
+   * Salva as credenciais de login da conta no Supabase (dentro de public.configuracao com id = auth_user_<email>)
+   * para permitir login e restauração completa mesmo após desinstalar o app ou trocar de celular.
+   */
+  async salvarContaNaNuvem(user: {
+    id: string;
+    nome: string;
+    email: string;
+    senha: string;
+    empresaId: string;
+    empresaNome: string;
+    whatsapp?: string;
+    cidade?: string;
+    estado?: string;
+  }): Promise<void> {
+    try {
+      const supabase = SupabaseClientService.getClient();
+      if (!supabase) return;
+      const emailNorm = user.email.toLowerCase().trim();
+      const now = new Date().toISOString();
+
+      const authRow = {
+        id: `auth_user_${emailNorm}`,
+        empresaId: user.empresaId,
+        nomeDistribuidora: user.empresaNome || 'Minha Distribuidora',
+        telefone: JSON.stringify({
+          id: user.id,
+          nome: user.nome,
+          email: emailNorm,
+          senha: user.senha,
+          role: 'ADMIN',
+          empresaId: user.empresaId,
+          empresaNome: user.empresaNome || 'Minha Distribuidora',
+        }),
+        whatsapp: user.whatsapp || '',
+        chavePix: '',
+        cidade: user.cidade || '',
+        estado: user.estado || 'PB',
+        trialStartDate: now,
+        isSubscribed: 0,
+        plano: 'AUTH_USER',
+        createdAt: now,
+      };
+
+      await supabase.from('configuracao').upsert([authRow], { onConflict: 'id' });
+    } catch (e) {
+      console.warn('Erro ao salvar conta na nuvem:', e);
+    }
+  },
+
+  /**
+   * Busca se já existe uma distribuidora na nuvem para este e-mail, WhatsApp ou nome
+   */
+  async buscarEmpresaExistenteNaNuvem(params: {
+    email: string;
+    whatsapp?: string;
+    nomeDistribuidora?: string;
+  }): Promise<{ empresaId: string; configRow?: any } | null> {
+    try {
+      const supabase = SupabaseClientService.getClient();
+      if (!supabase) return null;
+      const emailNorm = params.email.toLowerCase().trim();
+
+      // 1. Verificar se já existe auth_user_<email>
+      const { data: authRow } = await supabase
+        .from('configuracao')
+        .select('*')
+        .eq('id', `auth_user_${emailNorm}`)
+        .maybeSingle();
+
+      if (authRow?.empresaId) {
+        return { empresaId: authRow.empresaId, configRow: authRow };
+      }
+
+      // 2. Verificar se já existe distribuidora pelo WhatsApp ou Nome
+      const { data: configs } = await supabase
+        .from('configuracao')
+        .select('*')
+        .neq('plano', 'AUTH_USER')
+        .order('createdAt', { ascending: false });
+
+      if (configs && configs.length > 0) {
+        const cleanPhone = (params.whatsapp || '').replace(/\D/g, '');
+        const cleanName = (params.nomeDistribuidora || '').toLowerCase().trim();
+
+        const match = configs.find((c: any) => {
+          if (c.id?.startsWith('auth_user_')) return false;
+          const cPhone = String(c.whatsapp || '').replace(/\D/g, '');
+          const cName = String(c.nomeDistribuidora || '').toLowerCase().trim();
+          if (cleanPhone && cleanPhone.length >= 8 && cPhone === cleanPhone && cPhone !== '11999999999') {
+            return true;
+          }
+          if (cleanName && cName === cleanName && cName !== 'água & gás modelo') {
+            return true;
+          }
+          return false;
+        });
+
+        if (match?.empresaId) {
+          return { empresaId: match.empresaId, configRow: match };
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao buscar empresa existente na nuvem:', e);
+    }
+    return null;
+  },
+
+  /**
+   * Autentica o usuário consultando o Supabase quando o banco local foi limpo ou o app foi reinstalado,
+   * e restaura automaticamente todos os dados da distribuidora.
+   */
+  async autenticarContaNaNuvem(
+    email: string,
+    pass: string
+  ): Promise<{
+    success: boolean;
+    wrongPassword?: boolean;
+    user?: any;
+  }> {
+    try {
+      const supabase = SupabaseClientService.getClient();
+      if (!supabase) return { success: false };
+
+      const emailNorm = email.toLowerCase().trim();
+      const db = getDatabase();
+      const now = new Date().toISOString();
+
+      // 1. Buscar registro de autenticação direto (auth_user_<email>)
+      const { data: authRow } = await supabase
+        .from('configuracao')
+        .select('*')
+        .eq('id', `auth_user_${emailNorm}`)
+        .maybeSingle();
+
+      let targetEmpresaId: string | null = null;
+      let userData: any = null;
+      let distConfig: any = null;
+
+      if (authRow) {
+        try {
+          const parsed = JSON.parse(authRow.telefone || '{}');
+          if (parsed.senha && parsed.senha !== pass) {
+            return { success: false, wrongPassword: true };
+          }
+          targetEmpresaId = authRow.empresaId || parsed.empresaId;
+          userData = {
+            id: parsed.id || 'usr-' + Date.now().toString(36),
+            nome: parsed.nome || authRow.nomeDistribuidora || 'Administrador',
+            email: emailNorm,
+            senha: pass,
+            empresaId: targetEmpresaId,
+            empresaNome: parsed.empresaNome || authRow.nomeDistribuidora || 'Minha Distribuidora',
+          };
+        } catch {}
+      }
+
+      // 2. Recuperação automática para contas criadas antes do vínculo auth_user_ (ex: Arthur distribuidora)
+      if (!targetEmpresaId) {
+        const { data: allConfigs } = await supabase
+          .from('configuracao')
+          .select('*')
+          .order('createdAt', { ascending: false });
+
+        const distRows = (allConfigs || []).filter(
+          (c: any) => !String(c.id || '').startsWith('auth_user_') && c.plano !== 'AUTH_USER'
+        );
+        const authRows = (allConfigs || []).filter(
+          (c: any) => String(c.id || '').startsWith('auth_user_') || c.plano === 'AUTH_USER'
+        );
+
+        const emailPrefix = emailNorm.split('@')[0].replace(/[^a-z0-9]/g, '');
+
+        const matchedDist = distRows.find((c: any) => {
+          const distNameNorm = String(c.nomeDistribuidora || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '');
+          // Se o e-mail contém o nome da distribuidora (ex: arthur -> arthurdistribuidora)
+          if (emailPrefix.length >= 4 && (distNameNorm.includes(emailPrefix) || emailPrefix.includes(distNameNorm))) {
+            // Verifica se essa empresa ainda não está vinculada a outro e-mail diferente
+            const boundOther = authRows.find(
+              (a: any) => a.empresaId === c.empresaId && a.id !== `auth_user_${emailNorm}`
+            );
+            return !boundOther;
+          }
+          return false;
+        });
+
+        if (matchedDist?.empresaId) {
+          targetEmpresaId = matchedDist.empresaId;
+          distConfig = matchedDist;
+          userData = {
+            id: 'usr-' + Math.random().toString(36).slice(2, 9),
+            nome: matchedDist.nomeDistribuidora.split(' ')[0] || 'Administrador',
+            email: emailNorm,
+            senha: pass,
+            empresaId: targetEmpresaId,
+            empresaNome: matchedDist.nomeDistribuidora,
+          };
+
+          // Salva o vínculo auth_user_<email> na nuvem para os próximos logins
+          await this.salvarContaNaNuvem({
+            ...userData,
+            whatsapp: matchedDist.whatsapp,
+            cidade: matchedDist.cidade,
+            estado: matchedDist.estado,
+          });
+        }
+      }
+
+      if (!targetEmpresaId || !userData) {
+        return { success: false };
+      }
+
+      // 3. Buscar dados da distribuidora se ainda não carregados
+      if (!distConfig) {
+        const { data: cfgRows } = await supabase
+          .from('configuracao')
+          .select('*')
+          .eq('empresaId', targetEmpresaId);
+        distConfig = (cfgRows || []).find(
+          (c: any) => !String(c.id || '').startsWith('auth_user_') && c.plano !== 'AUTH_USER'
+        );
+      }
+
+      // 4. Restaurar configuração local e usuário local no SQLite
+      db.runSync('DELETE FROM configuracao;');
+      db.runSync(
+        `INSERT INTO configuracao (id, empresaId, nomeDistribuidora, telefone, whatsapp, chavePix, cidade, estado, trialStartDate, isSubscribed, plano, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          distConfig?.id || 'cfg-' + targetEmpresaId,
+          targetEmpresaId,
+          distConfig?.nomeDistribuidora || userData.empresaNome || 'Minha Distribuidora',
+          distConfig?.telefone || '',
+          distConfig?.whatsapp || '',
+          distConfig?.chavePix || '',
+          distConfig?.cidade || '',
+          distConfig?.estado || 'PB',
+          distConfig?.trialStartDate || now,
+          distConfig?.isSubscribed ?? 0,
+          distConfig?.plano || 'TRIAL_14_DIAS',
+          distConfig?.createdAt || now,
+        ]
+      );
+
+      db.runSync(
+        `INSERT OR REPLACE INTO usuarios (id, nome, email, senha, role, empresaId, empresaNome, ativo, createdAt)
+         VALUES (?, ?, ?, ?, 'ADMIN', ?, ?, 1, ?)`,
+        [
+          userData.id,
+          userData.nome,
+          emailNorm,
+          pass,
+          targetEmpresaId,
+          distConfig?.nomeDistribuidora || userData.empresaNome,
+          now,
+        ]
+      );
+
+      // 5. Baixar todos os dados da distribuidora da nuvem antes de qualquer push
+      await this.pullEmpresaDaNuvem(targetEmpresaId);
+
+      return {
+        success: true,
+        user: {
+          id: userData.id,
+          empresaId: targetEmpresaId,
+          nome: userData.nome,
+          email: emailNorm,
+          role: 'EMPRESA_ADMIN',
+          ativo: true,
+          empresa: {
+            id: targetEmpresaId,
+            nome: distConfig?.nomeDistribuidora || userData.empresaNome,
+            cidade: distConfig?.cidade,
+            estado: distConfig?.estado,
+            ativo: true,
+            createdAt: now,
+            updatedAt: now,
+          },
+          createdAt: now,
+          updatedAt: now,
+        },
+      };
+    } catch (e) {
+      console.warn('Erro ao autenticar conta na nuvem:', e);
+      return { success: false };
+    }
+  },
+
+  /**
+   * Limpa dados temporários de outro tenant local e baixa todos os registros da empresa no Supabase
+   */
+  async pullEmpresaDaNuvem(empresaId: string): Promise<void> {
+    try {
+      const supabase = SupabaseClientService.getClient();
+      if (!supabase || !empresaId) return;
+      const db = getDatabase();
+      const now = new Date().toISOString();
+
+      // Remove produtos padrão vazios ou registros de outra empresa local
+      const tabelasLocais = [
+        'produtos',
+        'clientes',
+        'pedidos',
+        'fiados',
+        'despesas',
+        'estoque_garrafoes',
+        'movimentacoes_estoque',
+        'quitacoes_fiado',
+      ];
+      for (const tab of tabelasLocais) {
+        try {
+          db.runSync(`DELETE FROM ${tab} WHERE empresaId IS NULL OR empresaId != ?`, [empresaId]);
+        } catch {}
+      }
+
+      // 1. Produtos
+      const { data: cloudProdutos } = await supabase.from('produtos').select('*').eq('empresaId', empresaId);
+      if (cloudProdutos) {
+        for (const p of cloudProdutos) {
+          db.runSync(
+            `INSERT OR REPLACE INTO produtos (id, empresaId, nome, categoria, precoVenda, custo, estoqueAtual, unidade, ativo, createdAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [p.id, empresaId, p.nome, p.categoria, p.precoVenda, p.custo ?? 0, p.estoqueAtual ?? 0, p.unidade ?? 'UN', p.ativo ?? 1, p.createdAt || now]
+          );
+        }
+      }
+
+      // 2. Clientes
+      const { data: cloudClientes } = await supabase.from('clientes').select('*').eq('empresaId', empresaId);
+      if (cloudClientes) {
+        for (const c of cloudClientes) {
+          db.runSync(
+            `INSERT OR REPLACE INTO clientes (id, empresaId, nome, cpfCnpj, telefone, whatsapp, logradouro, numero, bairro, cidade, estado, pontoReferencia, latitude, longitude, ativo, precosEspeciaisJson, createdAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              c.id, empresaId, c.nome, c.cpfCnpj || null, c.telefone || null, c.whatsapp || null,
+              c.logradouro || null, c.numero || null, c.bairro || null, c.cidade || null, c.estado || null,
+              c.pontoReferencia || null, c.latitude ?? null, c.longitude ?? null, c.ativo ?? 1,
+              c.precosEspeciaisJson || null, c.createdAt || now,
+            ]
+          );
+        }
+      }
+
+      // 3. Pedidos
+      const { data: cloudPedidos } = await supabase.from('pedidos').select('*').eq('empresaId', empresaId);
+      if (cloudPedidos) {
+        for (const p of cloudPedidos) {
+          db.runSync(
+            `INSERT OR REPLACE INTO pedidos (id, empresaId, numero, clienteId, clienteNome, clienteTelefone, clienteEndereco, data, valorTotal, desconto, acrescimo, status, formaPagamento, trocoPara, observacoes, itensJson, createdAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              p.id, empresaId, p.numero, p.clienteId || null, p.clienteNome, p.clienteTelefone || null,
+              p.clienteEndereco || null, p.data, p.valorTotal, p.desconto ?? 0, p.acrescimo ?? 0,
+              p.status, p.formaPagamento, p.trocoPara ?? null, p.observacoes || null,
+              p.itensJson || '[]', p.createdAt || now,
+            ]
+          );
+        }
+      }
+
+      // 4. Fiados
+      const { data: cloudFiados } = await supabase.from('fiados').select('*').eq('empresaId', empresaId);
+      if (cloudFiados) {
+        for (const f of cloudFiados) {
+          db.runSync(
+            `INSERT OR REPLACE INTO fiados (id, empresaId, clienteId, clienteNome, pedidoId, pedidoNumero, valorOriginal, valorPago, saldo, situacao, createdAt, updatedAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              f.id, empresaId, f.clienteId, f.clienteNome, f.pedidoId || null, f.pedidoNumero || null,
+              f.valorOriginal, f.valorPago ?? 0, f.saldo, f.situacao, f.createdAt || now, f.updatedAt || now,
+            ]
+          );
+        }
+      }
+
+      // 5. Despesas
+      const { data: cloudDespesas } = await supabase.from('despesas').select('*').eq('empresaId', empresaId);
+      if (cloudDespesas) {
+        for (const d of cloudDespesas) {
+          db.runSync(
+            `INSERT OR REPLACE INTO despesas (id, empresaId, descricao, categoria, valor, data, formaPagamento, createdAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [d.id, empresaId, d.descricao, d.categoria, d.valor, d.data, d.formaPagamento, d.createdAt || now]
+          );
+        }
+      }
+
+      // 6. Estoque Garrafões
+      const { data: cloudGarrafoes } = await supabase.from('estoque_garrafoes').select('*').eq('empresaId', empresaId);
+      if (cloudGarrafoes) {
+        for (const g of cloudGarrafoes) {
+          db.runSync(
+            `INSERT OR REPLACE INTO estoque_garrafoes (id, empresaId, anoFabricacao, anoValidade, quantidade, status, observacoes, createdAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [g.id, empresaId, g.anoFabricacao, g.anoValidade, g.quantidade, g.status, g.observacoes || null, g.createdAt || now]
+          );
+        }
+      }
+
+      // 7. Quitações de Fiados
+      const { data: cloudQuitacoes } = await supabase.from('quitacoes_fiado').select('*').eq('empresaId', empresaId);
+      if (cloudQuitacoes) {
+        for (const q of cloudQuitacoes) {
+          db.runSync(
+            `INSERT OR REPLACE INTO quitacoes_fiado (id, empresaId, fiadoId, pedidoId, clienteId, clienteNome, valor, formaPagamento, data, observacoes, createdAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [q.id, empresaId, q.fiadoId, q.pedidoId || null, q.clienteId || 'balcao', q.clienteNome || 'Cliente', q.valor, q.formaPagamento, q.data, q.observacoes || null, q.createdAt || q.data || now]
+          );
+        }
+      }
+
+      // 8. Movimentações de Estoque
+      const { data: cloudMovs } = await supabase.from('movimentacoes_estoque').select('*').eq('empresaId', empresaId);
+      if (cloudMovs) {
+        for (const m of cloudMovs) {
+          db.runSync(
+            `INSERT OR REPLACE INTO movimentacoes_estoque (id, empresaId, produtoId, produtoNome, tipo, quantidade, motivo, data)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [m.id, empresaId, m.produtoId || null, m.produtoNome || 'Água Mineral', m.tipo || 'AJUSTE', m.quantidade ?? 0, m.motivo || null, m.data || now]
+          );
+        }
+      }
+
+      SupabaseClientService.updateLastSyncTime(now);
+      this.iniciarRealtime();
+    } catch (e) {
+      console.warn('Erro ao puxar dados da empresa da nuvem:', e);
     }
   },
 };

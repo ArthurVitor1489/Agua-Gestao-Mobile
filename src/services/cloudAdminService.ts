@@ -209,11 +209,11 @@ export const CloudAdminService = {
       );
     `);
 
-    // Tentar buscar da nuvem primeiro se configurada
+    // Tentar buscar da nuvem primeiro se configurada (lendo da tabela real public.configuracao no Supabase)
     try {
       const { url, apiKey } = this.getCloudConfig();
       if (url && !url.includes('aguagestao-cloud.supabase.co')) {
-        const res = await axios.get(`${url}/rest/v1/distribuidoras?order=created_at.desc`, {
+        const res = await axios.get(`${url}/rest/v1/configuracao?select=*`, {
           headers: {
             apikey: apiKey,
             Authorization: `Bearer ${apiKey}`,
@@ -222,24 +222,46 @@ export const CloudAdminService = {
         });
 
         if (Array.isArray(res.data) && res.data.length > 0) {
-          // Atualiza o cache local
-          for (const item of res.data) {
+          const authRows = res.data.filter(
+            (r: any) => String(r.id || '').startsWith('auth_user_') || r.plano === 'AUTH_USER'
+          );
+          const distRows = res.data.filter(
+            (r: any) => !String(r.id || '').startsWith('auth_user_') && r.plano !== 'AUTH_USER'
+          );
+
+          for (const item of distRows) {
+            const linkedAuth = authRows.find((a: any) => a.empresaId === item.empresaId);
+            let email = '';
+            let responsavel = item.nomeDistribuidora || 'Responsável';
+            if (linkedAuth?.telefone) {
+              try {
+                const parsed = JSON.parse(linkedAuth.telefone);
+                email = parsed.email || '';
+                responsavel = parsed.nome || responsavel;
+              } catch {}
+            }
+
+            const isSub = Number(item.isSubscribed) === 1 || item.plano === 'ANUAL' || item.plano === 'VITALICIO';
+            const status = item.plano === 'SUSPENSO' ? 'BLOQUEADO' : isSub ? 'ATIVO' : 'TRIAL';
+            const dataCad = item.createdAt || new Date().toISOString();
+            const ultAtiv = item.updatedAt || dataCad;
+
             db.runSync(
               `INSERT OR REPLACE INTO distribuidoras_master (id, nomeDistribuidora, responsavel, email, whatsapp, cidade, estado, status, plano, trialStartDate, dataCadastro, ultimaAtividade, sincronizado)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
               [
-                item.id,
-                item.nome_distribuidora || item.nomeDistribuidora,
-                item.responsavel,
-                item.email,
+                item.empresaId || item.id,
+                item.nomeDistribuidora || 'Distribuidora',
+                responsavel,
+                email,
                 item.whatsapp || '',
                 item.cidade || '',
                 item.estado || '',
-                item.status || 'TRIAL',
+                status,
                 item.plano || 'TRIAL_14_DIAS',
-                item.trial_start_date || item.trialStartDate,
-                item.created_at || item.dataCadastro,
-                item.created_at || item.dataCadastro,
+                item.trialStartDate || dataCad,
+                dataCad,
+                ultAtiv,
               ]
             );
           }
