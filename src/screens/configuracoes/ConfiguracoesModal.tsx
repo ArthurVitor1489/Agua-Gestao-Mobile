@@ -22,6 +22,7 @@ import { TermosPrivacidadeModal } from '../legal/TermosPrivacidadeModal';
 import { HapticService } from '../../services/hapticService';
 import { SupabaseClientService } from '../../services/supabaseClient';
 import { CloudSyncService } from '../../services/cloudSyncService';
+import { useKeyboardOffset } from '../../hooks/useKeyboardOffset';
 import {
   X,
   Settings,
@@ -58,6 +59,7 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
 }) => {
   const { colors } = useTheme();
   const { logout } = useAuth();
+  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
 
   const [abaAtiva, setAbaAtiva] = useState<'produtos' | 'distribuidora' | 'termos'>(initialTab);
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -226,8 +228,14 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.overlay}>
-        <View style={[styles.container, { backgroundColor: colors.card }]}>
+      <View style={[styles.overlay, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: colors.card },
+            maxModalHeight ? { height: maxModalHeight } : null,
+          ]}
+        >
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>

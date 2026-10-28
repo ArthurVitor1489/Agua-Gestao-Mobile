@@ -14,6 +14,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { ClientesService, ProdutosService } from '../../database/dbService';
 import { Produto, Cliente } from '../../database/models';
 import { HapticService } from '../../services/hapticService';
+import { useKeyboardOffset } from '../../hooks/useKeyboardOffset';
 import { X, Check, Sparkles, DollarSign, Edit2 } from 'lucide-react-native';
 
 interface NovoClienteModalProps {
@@ -30,6 +31,7 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
   onSuccess,
 }) => {
   const { colors } = useTheme();
+  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
 
   const [nome, setNome] = useState('');
   const [cpfCnpj, setCpfCnpj] = useState('');
@@ -160,8 +162,14 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.overlay}>
-        <View style={[styles.container, { backgroundColor: colors.card }]}>
+      <View style={[styles.overlay, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: colors.card },
+            maxModalHeight ? { maxHeight: maxModalHeight } : null,
+          ]}
+        >
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View>
               <Text style={[styles.title, { color: colors.text }]}>
@@ -176,7 +184,7 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Dados Básicos */}
             <Text style={[styles.label, { color: colors.text }]}>Nome / Razão Social *</Text>
             <TextInput

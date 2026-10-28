@@ -14,6 +14,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { FinanceiroService } from '../../database/dbService';
 import { Fiado, FormaPagamento } from '../../database/models';
 import { HapticService } from '../../services/hapticService';
+import { useKeyboardOffset } from '../../hooks/useKeyboardOffset';
 import { X, Check, DollarSign } from 'lucide-react-native';
 
 interface QuitarFiadoModalProps {
@@ -30,6 +31,7 @@ export const QuitarFiadoModal: React.FC<QuitarFiadoModalProps> = ({
   onSuccess,
 }) => {
   const { colors } = useTheme();
+  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
 
   const [valorPago, setValorPago] = useState(fiado?.saldo ? fiado.saldo.toFixed(2) : '');
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('PIX');
@@ -71,8 +73,14 @@ export const QuitarFiadoModal: React.FC<QuitarFiadoModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.overlay}>
-        <View style={[styles.container, { backgroundColor: colors.card }]}>
+      <View style={[styles.overlay, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: colors.card },
+            maxModalHeight ? { maxHeight: maxModalHeight } : null,
+          ]}
+        >
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View>
               <Text style={[styles.title, { color: colors.text }]}>Quitar / Amortizar Fiado</Text>
@@ -85,7 +93,7 @@ export const QuitarFiadoModal: React.FC<QuitarFiadoModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.body}>
+          <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
             {/* Resumo do Saldo */}
             <View style={[styles.saldoBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={{ fontSize: 12, color: colors.textMuted }}>SALDO DEVEDOR ATUAL</Text>

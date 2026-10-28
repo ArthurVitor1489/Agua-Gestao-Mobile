@@ -14,6 +14,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { EstoqueService } from '../../database/dbService';
 import { Produto } from '../../database/models';
 import { HapticService } from '../../services/hapticService';
+import { useKeyboardOffset } from '../../hooks/useKeyboardOffset';
 import { X, AlertTriangle, Check, Minus, Plus } from 'lucide-react-native';
 
 interface MovimentarGarrafaModalProps {
@@ -30,6 +31,7 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
   onSuccess,
 }) => {
   const { colors } = useTheme();
+  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
 
   const produtosValidos = produtos.filter((p) => p.ativo && p.categoria !== 'GARRAFAO_NOVO');
   const [selectedProdutoId, setSelectedProdutoId] = useState<string>('');
@@ -93,8 +95,14 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.overlay}>
-        <View style={[styles.container, { backgroundColor: colors.card }]}>
+      <View style={[styles.overlay, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: colors.card },
+            maxModalHeight ? { maxHeight: maxModalHeight } : null,
+          ]}
+        >
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <AlertTriangle size={22} color={colors.secondary} />
@@ -110,7 +118,7 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* 1. Seleção do Produto / Marca Avariada */}
             <Text style={[styles.label, { color: colors.text }]}>1. Qual água/marca quebrou ou avariou?</Text>
             {produtosValidos.length > 0 ? (

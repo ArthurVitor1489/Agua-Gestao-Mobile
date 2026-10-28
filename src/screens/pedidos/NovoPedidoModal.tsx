@@ -15,6 +15,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { ClientesService, ProdutosService, PedidosService } from '../../database/dbService';
 import { Cliente, Produto, Pedido, FormaPagamento } from '../../database/models';
 import { HapticService } from '../../services/hapticService';
+import { useKeyboardOffset } from '../../hooks/useKeyboardOffset';
 import {
   X,
   Search,
@@ -41,6 +42,7 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
   onSuccess,
 }) => {
   const { colors } = useTheme();
+  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -287,8 +289,14 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+      <View style={[styles.modalOverlay, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}>
+        <View
+          style={[
+            styles.modalContent,
+            { backgroundColor: colors.card },
+            maxModalHeight ? { maxHeight: maxModalHeight } : null,
+          ]}
+        >
           {/* Header do PDV */}
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <View>

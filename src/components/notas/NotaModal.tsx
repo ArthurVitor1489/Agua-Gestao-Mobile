@@ -15,6 +15,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { NotasService } from '../../database/dbService';
 import { Nota, ChecklistItem } from '../../database/models';
 import { HapticService } from '../../services/hapticService';
+import { useKeyboardOffset } from '../../hooks/useKeyboardOffset';
 import {
   X,
   Pin,
@@ -49,6 +50,7 @@ export const NotaModal: React.FC<NotaModalProps> = ({
   onSaved,
 }) => {
   const { colors, isDark } = useTheme();
+  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
 
   const [titulo, setTitulo] = useState('');
   const [tipo, setTipo] = useState<'texto' | 'checklist'>('texto');
@@ -180,11 +182,16 @@ export const NotaModal: React.FC<NotaModalProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.overlay}
+      <View
+        style={[styles.overlay, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}
       >
-        <View style={[styles.modalBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.modalBox,
+            { backgroundColor: colors.card, borderColor: colors.border },
+            maxModalHeight ? { maxHeight: maxModalHeight } : null,
+          ]}
+        >
           {/* Top Header */}
           <View style={styles.modalHeader}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -454,7 +461,7 @@ export const NotaModal: React.FC<NotaModalProps> = ({
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 };

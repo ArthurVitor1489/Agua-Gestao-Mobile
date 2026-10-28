@@ -14,6 +14,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { ProdutosService } from '../../database/dbService';
 import { Produto } from '../../database/models';
 import { HapticService } from '../../services/hapticService';
+import { useKeyboardOffset } from '../../hooks/useKeyboardOffset';
 import { X, Check, PackagePlus } from 'lucide-react-native';
 
 interface ProdutoFormModalProps {
@@ -30,6 +31,7 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
   onSuccess,
 }) => {
   const { colors } = useTheme();
+  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
 
   const [nome, setNome] = useState('');
   const [precoVenda, setPrecoVenda] = useState('');
@@ -89,8 +91,14 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.overlay}>
-        <View style={[styles.container, { backgroundColor: colors.card }]}>
+      <View style={[styles.overlay, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: colors.card },
+            maxModalHeight ? { maxHeight: maxModalHeight } : null,
+          ]}
+        >
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <PackagePlus size={22} color={colors.primary} />
@@ -108,7 +116,11 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.body}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             {/* Nome do Produto */}
             <Text style={[styles.label, { color: colors.text }]}>Nome do Produto *</Text>
             <TextInput
@@ -120,7 +132,6 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
               placeholderTextColor={colors.textMuted}
               value={nome}
               onChangeText={setNome}
-              autoFocus
             />
 
             {/* Preço do Produto */}

@@ -14,6 +14,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { EstoqueService } from '../../database/dbService';
 import { Produto } from '../../database/models';
 import { HapticService } from '../../services/hapticService';
+import { useKeyboardOffset } from '../../hooks/useKeyboardOffset';
 import { X, Truck, Check } from 'lucide-react-native';
 
 interface CargaEnvaseModalProps {
@@ -30,6 +31,7 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
   onSuccess,
 }) => {
   const { colors } = useTheme();
+  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
 
   // Produtos que usam vasilhame retornável (Galão 20L)
   const produtosRetornaveis = produtos.filter(
@@ -87,8 +89,14 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.overlay}>
-        <View style={[styles.container, { backgroundColor: colors.card }]}>
+      <View style={[styles.overlay, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: colors.card },
+            maxModalHeight ? { maxHeight: maxModalHeight } : null,
+          ]}
+        >
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Truck size={22} color={colors.primary} />
@@ -104,7 +112,7 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* 1. Selecionar Produto */}
             <Text style={[styles.label, { color: colors.text }]}>1. Produto Recebido da Fábrica:</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>

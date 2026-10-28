@@ -14,6 +14,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { FinanceiroService } from '../../database/dbService';
 import { CategoriaDespesa, FormaPagamento } from '../../database/models';
 import { HapticService } from '../../services/hapticService';
+import { useKeyboardOffset } from '../../hooks/useKeyboardOffset';
 import { X, Check } from 'lucide-react-native';
 
 interface NovaDespesaModalProps {
@@ -28,6 +29,7 @@ export const NovaDespesaModal: React.FC<NovaDespesaModalProps> = ({
   onSuccess,
 }) => {
   const { colors } = useTheme();
+  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
 
   const [descricao, setDescricao] = useState('');
   const [valor, setValor] = useState('');
@@ -70,8 +72,14 @@ export const NovaDespesaModal: React.FC<NovaDespesaModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.overlay}>
-        <View style={[styles.container, { backgroundColor: colors.card }]}>
+      <View style={[styles.overlay, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: colors.card },
+            maxModalHeight ? { maxHeight: maxModalHeight } : null,
+          ]}
+        >
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View>
               <Text style={[styles.title, { color: colors.text }]}>Nova Despesa de Rota</Text>
@@ -84,7 +92,7 @@ export const NovaDespesaModal: React.FC<NovaDespesaModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Categoria */}
             <Text style={[styles.label, { color: colors.text }]}>Categoria da Despesa:</Text>
             <View style={styles.categoryGrid}>
