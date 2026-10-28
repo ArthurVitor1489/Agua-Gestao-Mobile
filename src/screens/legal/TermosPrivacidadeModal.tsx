@@ -59,8 +59,22 @@ export const TermosPrivacidadeModal: React.FC<TermosPrivacidadeModalProps> = ({
               setExcluindo(true);
               await HapticService.error();
 
-              // 1. Limpar banco SQLite local
+              // 1. Limpar dados da empresa na nuvem (Supabase) e banco SQLite local
               const db = getDatabase();
+              let tenantId: string | undefined;
+              try {
+                const cfg = db.getFirstSync<any>('SELECT empresaId FROM configuracao LIMIT 1');
+                tenantId = cfg?.empresaId;
+              } catch {}
+
+              try {
+                const { CloudSyncService } = require('../../services/cloudSyncService');
+                CloudSyncService.pararRealtime();
+                await CloudSyncService.excluirDadosNuvemEmpresa(tenantId);
+              } catch (cloudErr) {
+                console.warn('Erro ao limpar dados na nuvem:', cloudErr);
+              }
+
               try {
                 db.runSync('DELETE FROM pedidos;');
                 db.runSync('DELETE FROM clientes;');
@@ -70,6 +84,7 @@ export const TermosPrivacidadeModal: React.FC<TermosPrivacidadeModalProps> = ({
                 db.runSync('DELETE FROM despesas;');
                 db.runSync('DELETE FROM estoque_garrafoes;');
                 db.runSync('DELETE FROM movimentacoes_estoque;');
+                db.runSync('DELETE FROM notas;');
                 db.runSync('DELETE FROM configuracao;');
                 db.runSync('DELETE FROM usuarios;');
               } catch (dbErr) {

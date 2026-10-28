@@ -209,8 +209,19 @@ export const CloudSyncService = {
         console.warn('Sync push configuracao:', err);
       }
 
-      // 1.2 Produtos
+      // 1.2 Produtos (Garante IDs exclusivos por empresa para evitar colisão entre distribuidoras)
       try {
+        for (const legacyId of ['prod-galao-20l', 'prod-vasilhame-20l']) {
+          const scopedId = `${tenantEmpresaId}_${legacyId}`;
+          const hasLegacy = db.getFirstSync<any>('SELECT id FROM produtos WHERE id = ?', [legacyId]);
+          const hasScoped = db.getFirstSync<any>('SELECT id FROM produtos WHERE id = ?', [scopedId]);
+          if (hasLegacy && !hasScoped) {
+            db.runSync('UPDATE produtos SET id = ?, empresaId = ? WHERE id = ?', [scopedId, tenantEmpresaId, legacyId]);
+          } else if (hasLegacy && hasScoped) {
+            db.runSync('DELETE FROM produtos WHERE id = ?', [legacyId]);
+          }
+        }
+
         const produtos = db.getAllSync<any>('SELECT * FROM produtos').map((p) => ({
           ...p,
           empresaId: p.empresaId || tenantEmpresaId,
@@ -257,12 +268,15 @@ export const CloudSyncService = {
         console.warn('Sync push clientes:', err);
       }
 
-      // 1.5 Pedidos
+      // 1.5 Pedidos (Remove colunas exclusivas do SQLite local como pagamentosJson para compatibilidade com o schema do Supabase)
       try {
-        const pedidos = db.getAllSync<any>('SELECT * FROM pedidos').map((p) => ({
-          ...p,
-          empresaId: p.empresaId || tenantEmpresaId,
-        }));
+        const pedidos = db.getAllSync<any>('SELECT * FROM pedidos').map((p) => {
+          const { pagamentosJson, ...rest } = p;
+          return {
+            ...rest,
+            empresaId: p.empresaId || tenantEmpresaId,
+          };
+        });
         if (pedidos.length > 0) {
           const { error } = await supabase.from('pedidos').upsert(pedidos, { onConflict: 'id' });
           if (!error) totalPushed += pedidos.length;
@@ -767,6 +781,41 @@ export const CloudSyncService = {
         console.warn('Erro ao remover canal Realtime:', e);
       }
       activeChannel = null;
+    }
+  },
+
+  /**
+   * Exclui todos os registros da empresa no Supabase (Conformidade LGPD & Google Play)
+   */
+  async excluirDadosNuvemEmpresa(empresaId?: string): Promise<void> {
+    try {
+      const supabase = SupabaseClientService.getClient();
+      if (!supabase) return;
+      const db = getDatabase();
+      const targetEmpresaId = empresaId || getTenantEmpresaId(db);
+      if (!targetEmpresaId || targetEmpresaId === 'local') return;
+
+      const tabelas = [
+        'quitacoes_fiado',
+        'fiados',
+        'pedidos',
+        'movimentacoes_estoque',
+        'estoque_garrafoes',
+        'despesas',
+        'clientes',
+        'produtos',
+        'configuracao',
+      ];
+
+      for (const tabela of tabelas) {
+        try {
+          await supabase.from(tabela).delete().eq('empresaId', targetEmpresaId);
+        } catch (e) {
+          console.warn(`Erro ao limpar tabela ${tabela} na nuvem:`, e);
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao excluir dados na nuvem:', e);
     }
   },
 };

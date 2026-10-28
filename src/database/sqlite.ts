@@ -330,16 +330,24 @@ const seedInitialData = (db: SQLite.SQLiteDatabase) => {
   if (!prodCount || prodCount.count === 0) {
     const now = new Date().toISOString();
 
+    let empId = 'emp-' + Math.random().toString(36).slice(2, 9) + '-' + Date.now().toString(36);
+    try {
+      const cfg = db.getFirstSync<any>('SELECT empresaId FROM configuracao LIMIT 1');
+      if (cfg?.empresaId && cfg.empresaId !== 'local') {
+        empId = cfg.empresaId;
+      }
+    } catch {}
+
     // Produtos Padrão de Água Mineral (Apenas Galão 20L e Vasilhame inicial com estoque ZERO)
     const produtos = [
-      { id: 'prod-galao-20l', nome: 'Água Mineral 20L', categoria: 'AGUA_20L', preco: 14.0, custo: 6.0, estoque: 0 },
-      { id: 'prod-vasilhame-20l', nome: 'Vasilhame Galão 20L (Vazio)', categoria: 'GARRAFAO_NOVO', preco: 35.0, custo: 25.0, estoque: 0 },
+      { id: `${empId}_prod-galao-20l`, nome: 'Água Mineral 20L', categoria: 'AGUA_20L', preco: 14.0, custo: 6.0, estoque: 0 },
+      { id: `${empId}_prod-vasilhame-20l`, nome: 'Vasilhame Galão 20L (Vazio)', categoria: 'GARRAFAO_NOVO', preco: 35.0, custo: 25.0, estoque: 0 },
     ];
 
     for (const p of produtos) {
       db.runSync(
-        'INSERT INTO produtos (id, nome, categoria, precoVenda, custo, estoqueAtual, unidade, ativo, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [p.id, p.nome, p.categoria, p.preco, p.custo, 0, 'UN', 1, now]
+        'INSERT INTO produtos (id, empresaId, nome, categoria, precoVenda, custo, estoqueAtual, unidade, ativo, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [p.id, empId, p.nome, p.categoria, p.preco, p.custo, 0, 'UN', 1, now]
       );
     }
   }

@@ -675,6 +675,7 @@ export const EstoqueService = {
     }
 
     // 4. Adicionar aos AVARIADOS (DANIFICADO)
+    const tenantId = ConfigService.getActiveEmpresaId();
     const destRow = db.getFirstSync<any>(
       "SELECT id FROM estoque_garrafoes WHERE status = 'DANIFICADO' LIMIT 1"
     );
@@ -686,9 +687,9 @@ export const EstoqueService = {
       ]);
     } else {
       db.runSync(
-        `INSERT INTO estoque_garrafoes (id, anoFabricacao, anoValidade, quantidade, status, observacoes, createdAt)
-         VALUES (?, 2024, 2027, ?, 'DANIFICADO', 'Avaria registrada', ?)`,
-        [generateId(), params.quantidade, now]
+        `INSERT INTO estoque_garrafoes (id, empresaId, anoFabricacao, anoValidade, quantidade, status, observacoes, createdAt)
+         VALUES (?, ?, 2024, 2027, ?, 'DANIFICADO', 'Avaria registrada', ?)`,
+        [generateId(), tenantId, params.quantidade, now]
       );
     }
 
@@ -703,9 +704,9 @@ export const EstoqueService = {
     }`;
 
     db.runSync(
-      `INSERT INTO movimentacoes_estoque (id, produtoId, produtoNome, tipo, quantidade, motivo, data)
-       VALUES (?, ?, ?, 'SAIDA', ?, ?, ?)`,
-      [generateId(), targetProdutoId || null, nomeProd, params.quantidade, motivoAudit, now]
+      `INSERT INTO movimentacoes_estoque (id, empresaId, produtoId, produtoNome, tipo, quantidade, motivo, data)
+       VALUES (?, ?, ?, ?, 'SAIDA', ?, ?, ?)`,
+      [generateId(), tenantId, targetProdutoId || null, nomeProd, params.quantidade, motivoAudit, now]
     );
     CloudSyncService.agendarSincronizacaoEmSegundoPlano();
   },
@@ -732,6 +733,7 @@ export const EstoqueService = {
 
     const db = getDatabase();
     const now = new Date().toISOString();
+    const tenantId = ConfigService.getActiveEmpresaId();
 
     db.runSync(
       'UPDATE estoque_garrafoes SET quantidade = MAX(0, quantidade - ?) WHERE status = ?',
@@ -743,16 +745,16 @@ export const EstoqueService = {
       db.runSync('UPDATE estoque_garrafoes SET quantidade = quantidade + ? WHERE id = ?', [params.quantidade, dest.id]);
     } else {
       db.runSync(
-        `INSERT INTO estoque_garrafoes (id, anoFabricacao, anoValidade, quantidade, status, observacoes, createdAt)
-         VALUES (?, 2024, 2027, ?, ?, ?, ?)`,
-        [generateId(), params.quantidade, params.statusDestino, params.motivo || '', now]
+        `INSERT INTO estoque_garrafoes (id, empresaId, anoFabricacao, anoValidade, quantidade, status, observacoes, createdAt)
+         VALUES (?, ?, 2024, 2027, ?, ?, ?, ?)`,
+        [generateId(), tenantId, params.quantidade, params.statusDestino, params.motivo || '', now]
       );
     }
 
     db.runSync(
-      `INSERT INTO movimentacoes_estoque (id, produtoId, produtoNome, tipo, quantidade, motivo, data)
-       VALUES (?, null, ?, 'AJUSTE', ?, ?, ?)`,
-      [generateId(), `Vasilhames (${params.statusOrigem} -> ${params.statusDestino})`, params.quantidade, params.motivo || 'Movimentação', now]
+      `INSERT INTO movimentacoes_estoque (id, empresaId, produtoId, produtoNome, tipo, quantidade, motivo, data)
+       VALUES (?, ?, null, ?, 'AJUSTE', ?, ?, ?)`,
+      [generateId(), tenantId, `Vasilhames (${params.statusOrigem} -> ${params.statusDestino})`, params.quantidade, params.motivo || 'Movimentação', now]
     );
   },
 };
@@ -1118,10 +1120,11 @@ export const PedidosService = {
       );
 
       // Registrar histórico no extrato de movimentação de estoque
+      const movTenantId = ConfigService.getActiveEmpresaId();
       db.runSync(
-        `INSERT INTO movimentacoes_estoque (id, produtoId, produtoNome, tipo, quantidade, motivo, data)
-         VALUES (?, ?, ?, 'SAIDA', ?, ?, ?)`,
-        [generateId(), it.produtoId, prod?.nome || 'Água Mineral', it.quantidade, `Venda - Pedido #${numero}`, now]
+        `INSERT INTO movimentacoes_estoque (id, empresaId, produtoId, produtoNome, tipo, quantidade, motivo, data)
+         VALUES (?, ?, ?, ?, 'SAIDA', ?, ?, ?)`,
+        [generateId(), movTenantId, it.produtoId, prod?.nome || 'Água Mineral', it.quantidade, `Venda - Pedido #${numero}`, now]
       );
     }
 
@@ -1203,6 +1206,7 @@ export const PedidosService = {
     // Estornar itens ao estoque
     const itens: PedidoItem[] = JSON.parse(ped.itensJson || '[]');
     const now = new Date().toISOString();
+    const tenantId = ConfigService.getActiveEmpresaId();
     for (const it of itens) {
       db.runSync('UPDATE produtos SET estoqueAtual = estoqueAtual + ? WHERE id = ?', [it.quantidade, it.produtoId]);
       db.runSync(
@@ -1210,14 +1214,14 @@ export const PedidosService = {
         [it.quantidade, 'CHEIO']
       );
       db.runSync(
-        `INSERT INTO movimentacoes_estoque (id, produtoId, produtoNome, tipo, quantidade, motivo, data)
-         VALUES (?, ?, ?, 'ENTRADA', ?, ?, ?)`,
-        [generateId(), it.produtoId, it.produto?.nome || 'Água Mineral', it.quantidade, `Estorno Cancelamento Pedido #${ped.numero}`, now]
+        `INSERT INTO movimentacoes_estoque (id, empresaId, produtoId, produtoNome, tipo, quantidade, motivo, data)
+         VALUES (?, ?, ?, ?, 'ENTRADA', ?, ?, ?)`,
+        [generateId(), tenantId, it.produtoId, it.produto?.nome || 'Água Mineral', it.quantidade, `Estorno Cancelamento Pedido #${ped.numero}`, now]
       );
     }
 
-    // Cancelar fiado correspondente se houver
-    db.runSync('UPDATE fiados SET situacao = ? WHERE pedidoId = ?', ['CANCELADO', id]);
+    // Cancelar fiado correspondente se houver e zerar o saldo devedor
+    db.runSync('UPDATE fiados SET situacao = ?, saldo = 0, updatedAt = ? WHERE pedidoId = ?', ['CANCELADO', now, id]);
 
     // Marcar como cancelado
     db.runSync('UPDATE pedidos SET status = ? WHERE id = ?', ['CANCELADO', id]);
@@ -1231,7 +1235,9 @@ export const PedidosService = {
 export const FinanceiroService = {
   getFiados(): Fiado[] {
     const db = getDatabase();
-    const rows = db.getAllSync<any>("SELECT * FROM fiados WHERE situacao != 'QUITADO' ORDER BY createdAt DESC");
+    const rows = db.getAllSync<any>(
+      "SELECT * FROM fiados WHERE situacao NOT IN ('QUITADO', 'CANCELADO') AND saldo > 0 ORDER BY createdAt DESC"
+    );
     
     // Buscar histórico de quitações
     const quitacoesPorFiado: Record<string, any[]> = {};
@@ -1430,7 +1436,7 @@ export const FinanceiroService = {
       }
 
       const pedidosRows = db.getAllSync<any>(
-        "SELECT id, numero, data, valorTotal, formaPagamento, itensJson FROM pedidos WHERE status != 'CANCELADO'"
+        "SELECT id, numero, data, valorTotal, formaPagamento, itensJson, pagamentosJson FROM pedidos WHERE status != 'CANCELADO'"
       );
 
       for (const p of pedidosRows) {
@@ -1848,27 +1854,28 @@ export const NotasService = {
     const cor = nota.cor || '#FEF3C7';
     const fixadoNum = nota.fixado ? 1 : 0;
     const concluidoNum = nota.concluido ? 1 : 0;
+    const tenantId = nota.empresaId || ConfigService.getActiveEmpresaId();
 
     if (nota.id) {
       // Atualizar existente
       db.runSync(
         `UPDATE notas 
-         SET titulo = ?, conteudo = ?, tipo = ?, cor = ?, fixado = ?, concluido = ?, updatedAt = ? 
+         SET empresaId = COALESCE(empresaId, ?), titulo = ?, conteudo = ?, tipo = ?, cor = ?, fixado = ?, concluido = ?, updatedAt = ? 
          WHERE id = ?`,
-        [nota.titulo, nota.conteudo, nota.tipo, cor, fixadoNum, concluidoNum, now, nota.id]
+        [tenantId, nota.titulo, nota.conteudo, nota.tipo, cor, fixadoNum, concluidoNum, now, nota.id]
       );
     } else {
       // Inserir nova
       db.runSync(
         `INSERT INTO notas (id, empresaId, titulo, conteudo, tipo, cor, fixado, concluido, createdAt, updatedAt) 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, nota.empresaId || null, nota.titulo, nota.conteudo, nota.tipo, cor, fixadoNum, concluidoNum, now, now]
+        [id, tenantId, nota.titulo, nota.conteudo, nota.tipo, cor, fixadoNum, concluidoNum, now, now]
       );
     }
 
     return {
       id,
-      empresaId: nota.empresaId,
+      empresaId: tenantId,
       titulo: nota.titulo,
       conteudo: nota.conteudo,
       tipo: nota.tipo,
