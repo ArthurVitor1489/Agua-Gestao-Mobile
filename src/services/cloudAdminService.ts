@@ -18,8 +18,8 @@ export interface DistribuidoraCliente {
 }
 
 // Configuração padrão da Nuvem (Armazenada localmente e editável no painel)
-const DEFAULT_SUPABASE_URL = 'https://aguagestao-cloud.supabase.co';
-const DEFAULT_SUPABASE_KEY = 'public-anon-key-aguagestao-pro';
+const DEFAULT_SUPABASE_URL = 'https://owphqcljfztrduhmbmrh.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'sb_publishable_6gPw8vyAn_AIWrf7y_Ga5A_wYU2xyPs';
 
 export const CloudAdminService = {
   // 1. Obter configurações da nuvem
@@ -59,7 +59,7 @@ export const CloudAdminService = {
       const row = db.getFirstSync<any>('SELECT adminPin FROM admin_cloud_config LIMIT 1');
       if (row?.adminPin) return row.adminPin;
     } catch {}
-    return '2026'; // PIN padrão seguro para o administrador
+    return '1489'; // PIN padrão seguro para o administrador
   },
 
   // Salvar novo PIN de administrador
