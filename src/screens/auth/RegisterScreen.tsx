@@ -154,13 +154,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
           <Text style={[styles.brandSubtitle, { color: colors.textMuted }]}>
             Cadastre sua distribuidora e comece em minutos
           </Text>
-
-          <View style={[styles.trialBadge, { backgroundColor: '#dcfce7', borderColor: '#86efac' }]}>
-            <Sparkles size={12} color="#15803d" />
-            <Text style={{ color: '#15803d', fontSize: 11, fontWeight: '800' }}>
-              EDICÃO COMERCIAL • GOOGLE PLAY
-            </Text>
-          </View>
         </View>
 
         {/* Card do Formulário */}

@@ -596,7 +596,7 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
                   <View>
                     <Text style={{ fontSize: 14, fontWeight: '800', color: colors.text }}>Política de Privacidade</Text>
                     <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
-                      Em conformidade com a LGPD e Google Play
+                      Em conformidade com a LGPD
                     </Text>
                   </View>
                 </View>
@@ -647,7 +647,7 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
                   activeOpacity={0.7}
                 >
                   <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
-                    • Versão: <Text style={{ fontWeight: 'bold', color: colors.text }}>1.0.0 Pro (Google Play Edition)</Text>
+                    • Versão: <Text style={{ fontWeight: 'bold', color: colors.text }}>1.0.0 Pro</Text>
                   </Text>
                 </TouchableOpacity>
                 <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>

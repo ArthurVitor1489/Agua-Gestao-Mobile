@@ -142,13 +142,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
           <Text style={[styles.brandSubtitle, { color: colors.textMuted }]}>
             Gestão Inteligente para Distribuidoras de Água
           </Text>
-
-          <View style={[styles.trialBadge, { backgroundColor: '#dcfce7', borderColor: '#86efac' }]}>
-            <Sparkles size={12} color="#15803d" />
-            <Text style={{ color: '#15803d', fontSize: 11, fontWeight: '800' }}>
-              EDICÃO COMERCIAL • GOOGLE PLAY
-            </Text>
-          </View>
         </View>
 
         {/* Card de Login */}
