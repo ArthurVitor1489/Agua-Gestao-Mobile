@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Política de Privacidade - Água Gestão</title>
+  <meta name="description" content="Política de Privacidade e Proteção de Dados do aplicativo Água Gestão em conformidade com a LGPD e Google Play Developer Program.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --primary-light: #e0f2fe;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --success: #059669;
+      --success-light: #ecfdf5;
+      --danger: #dc2626;
+      --danger-light: #fee2e2;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      padding: 24px 16px 60px;
+    }
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .header-card {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #ffffff;
+      padding: 36px 28px;
+      border-radius: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 25px -5px rgba(2, 132, 199, 0.25);
+    }
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(8px);
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1.25;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 15px;
+      opacity: 0.9;
+    }
+    .compliance-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+    .pill {
+      background: rgba(255, 255, 255, 0.15);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 8px;
+    }
+    .content-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px 28px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
+    }
+    h2 {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--primary-dark);
+      margin: 28px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--primary-light);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h2:first-of-type {
+      margin-top: 0;
+    }
+    h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 18px 0 8px;
+    }
+    p {
+      margin-bottom: 14px;
+      font-size: 15px;
+      color: var(--text-muted);
+    }
+    ul {
+      margin-left: 20px;
+      margin-bottom: 16px;
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+    strong {
+      color: var(--text);
+    }
+    .alert-box {
+      background: var(--success-light);
+      border: 1px solid #a7f3d0;
+      border-left: 4px solid var(--success);
+      padding: 16px 20px;
+      border-radius: 12px;
+      margin: 20px 0;
+      color: #065f46;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .warning-box {
+      background: var(--danger-light);
+      border: 1px solid #fca5a5;
+      border-left: 4px solid var(--danger);
+      padding: 18px 20px;
+      border-radius: 12px;
+      margin: 20px 0;
+      color: #991b1b;
+      font-size: 14px;
+    }
+    .warning-box h4 {
+      font-weight: 800;
+      font-size: 15px;
+      margin-bottom: 6px;
+      color: #7f1d1d;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    .data-table th, .data-table td {
+      border: 1px solid var(--border);
+      padding: 12px 14px;
+      text-align: left;
+    }
+    .data-table th {
+      background: #f1f5f9;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .footer-note {
+      text-align: center;
+      margin-top: 32px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .contact-card {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      padding: 20px;
+      border-radius: 14px;
+      margin-top: 20px;
+    }
+    .contact-card a {
+      color: #15803d;
+      font-weight: 700;
+      text-decoration: underline;
+    }
+    @media (max-width: 640px) {
+      body {
+        padding: 16px 12px 40px;
+      }
+      .header-card {
+        padding: 24px 20px;
+      }
+      h1 {
+        font-size: 24px;
+      }
+      .content-card {
+        padding: 22px 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <!-- Top Header Card -->
+    <header class="header-card">
+      <div class="brand-badge">💧 Água Gestão</div>
+      <h1>Política de Privacidade e Proteção de Dados</h1>
+      <p class="subtitle">Transparência total sobre como tratamos, armazenamos e protegemos as suas informações.</p>
+      <div class="compliance-pills">
+        <span class="pill">✓ Lei Geral de Proteção de Dados (LGPD - Lei 13.709/2018)</span>
+        <span class="pill">✓ Diretrizes de Desenvolvedor Google Play</span>
+        <span class="pill">✓ Atualizado em 28 de Outubro de 2026</span>
+      </div>
+    </header>
+
+    <!-- Main Content Card -->
+    <main class="content-card">
+
+      <div class="alert-box">
+        🔒 <strong>Compromisso de Privacidade:</strong> O Água Gestão não vende, não comercializa e não compartilha dados pessoais ou operacionais com terceiros para fins de publicidade. Seus dados pertencem exclusivamente a você e à sua distribuidora.
+      </div>
+
+      <h2>1. Visão Geral do Aplicativo</h2>
+      <p>
+        O aplicativo <strong>Água Gestão</strong> (identificador de pacote <code>br.com.aguagestao.app</code>) é uma solução de software voltada para a gestão de distribuidoras de água mineral e gás, auxiliando no controle de estoque de vasilhames e garrafões, registro de entregas, gestão de clientes, contas a receber (caderneta digital) e fluxo financeiro diário.
+      </p>
+
+      <h2>2. Dados Pessoais Coletados e Finalidade</h2>
+      <p>Coletamos e tratamos apenas os dados estritamente necessários para a prestação dos serviços do aplicativo:</p>
+      
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Dado Coletado</th>
+            <th>Finalidade do Tratamento</th>
+            <th>Base Legal (LGPD)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Nome, E-mail e Senha</strong></td>
+            <td>Identificação da conta, autenticação segura e recuperação de acesso.</td>
+            <td>Execução de Contrato (Art. 7º, V)</td>
+          </tr>
+          <tr>
+            <td><strong>Nome da Distribuidora, Cidade e Estado</strong></td>
+            <td>Configuração personalizada da empresa e personalização de comprovantes.</td>
+            <td>Execução de Contrato (Art. 7º, V)</td>
+          </tr>
+          <tr>
+            <td><strong>Cadastros de Clientes e Endereço de Entrega</strong></td>
+            <td>Organização de rotas de entrega e emissão de recibos/comprovantes não fiscais.</td>
+            <td>Legítimo Interesse / Operação</td>
+          </tr>
+          <tr>
+            <td><strong>Registros de Vendas, Fiados e Despesas</strong></td>
+            <td>Controle financeiro interno e histórico de transações da distribuidora.</td>
+            <td>Execução de Contrato (Art. 7º, V)</td>
+          </tr>
+          <tr>
+            <td><strong>Localização Geográfica (GPS)</strong> (Opcional)</td>
+            <td>Permite registrar as coordenadas do endereço de entrega do cliente para facilitar a localização pelos entregadores. Não há rastreamento contínuo em segundo plano.</td>
+            <td>Consentimento (Art. 7º, I)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>3. Permissões de Dispositivo Solicitadas</h2>
+      <p>O aplicativo pode solicitar as seguintes permissões no seu dispositivo Android:</p>
+      <ul>
+        <li><strong>Localização (ACCESS_FINE_LOCATION e ACCESS_COARSE_LOCATION):</strong> Utilizada exclusivamente no momento em que o operador cadastra ou edita um cliente para capturar a coordenada geográfica da entrega.</li>
+        <li><strong>Bluetooth (BLUETOOTH_CONNECT e BLUETOOTH_SCAN):</strong> Utilizada opcionalmente caso o usuário deseje conectar mini impressoras térmicas portáteis Bluetooth para impressão física de comandas de entrega.</li>
+        <li><strong>Acesso à Rede e Internet (INTERNET e ACCESS_NETWORK_STATE):</strong> Utilizada para sincronizar com os servidores de backup em nuvem (quando conectado à internet).</li>
+      </ul>
+
+      <h2>4. Armazenamento e Arquitetura Offline-First</h2>
+      <p>
+        O Água Gestão foi construído sob o princípio de <strong>Offline-First</strong>. Os seus dados são salvos localmente no armazenamento seguro do dispositivo utilizando banco de dados SQLite nativo. Quando o dispositivo possui conectividade com a internet, os dados são sincronizados com nossos servidores em nuvem utilizando criptografia de ponta a ponta via <strong>HTTPS / TLS 1.3</strong>.
+      </p>
+      <p>
+        Utilizamos isolamento rigoroso por empresa (<em>Multi-tenant</em>): cada distribuidora possui seu próprio identificador exclusivo, impedindo terminantemente que usuários de uma empresa tenham acesso ou visualização aos dados de qualquer outra empresa.
+      </p>
+
+      <h2>5. Compartilhamento com Terceiros</h2>
+      <p>
+        Não compartilhamos informações pessoais com anunciantes nem intermediários de dados. Os únicos serviços com os quais mantemos integração são prestadores de infraestrutura tecnológica indispensáveis para o funcionamento do app:
+      </p>
+      <ul>
+        <li><strong>Supabase / PostgreSQL:</strong> Hospedagem de banco de dados e sincronização segura em nuvem.</li>
+        <li><strong>Expo / EAS (Expo Application Services):</strong> Infraestrutura para entrega de compilações e atualizações do app.</li>
+      </ul>
+
+      <h2>6. Seus Direitos como Titular dos Dados (LGPD)</h2>
+      <p>Em consonância com o Artigo 18 da Lei Geral de Proteção de Dados (Lei nº 13.709/2018), você tem o direito de:</p>
+      <ul>
+        <li>Confirmar a existência de tratamento dos seus dados;</li>
+        <li>Acessar seus dados a qualquer momento pelo aplicativo;</li>
+        <li>Corrigir dados incompletos, inexatos ou desatualizados;</li>
+        <li>Revogar consentimentos concedidos anteriormente;</li>
+        <li><strong>Solicitar a exclusão definitiva</strong> de sua conta e de todos os dados associados.</li>
+      </ul>
+
+      <h2>7. Exclusão de Conta e Dados Pessoais (Google Play)</h2>
+      <p>
+        Em estrito cumprimento aos requisitos de transparência da Google Play Store e da LGPD, disponibilizamos meios diretos, imediatos e sem burocracia para você excluir permanentemente sua conta e todos os seus dados:
+      </p>
+      
+      <div class="warning-box">
+        <h4>Como excluir seus dados diretamente pelo aplicativo:</h4>
+        <ol style="margin-left: 20px; margin-top: 6px;">
+          <li>Abra o aplicativo <strong>Água Gestão</strong> e faça login em sua conta;</li>
+          <li>Acesse a aba <strong>Configurações</strong> (ícone de engrenagem);</li>
+          <li>Toque na opção <strong>Privacidade</strong> e selecione a aba <strong>Excluir Dados</strong>;</li>
+          <li>Toque no botão vermelho <strong>EXCLUIR MINHA CONTA E TODOS OS DADOS</strong> e confirme a ação.</li>
+        </ol>
+        <p style="margin-top: 10px; margin-bottom: 0;">
+          Essa ação apaga imediatamente do dispositivo e dos servidores em nuvem todos os seus clientes, pedidos, fiados, despesas, produtos e login de acesso de forma definitiva e irreversível.
+        </p>
+      </div>
+
+      <div class="contact-card">
+        <strong>Também é possível solicitar a exclusão por canal externo (caso tenha desinstalado o app):</strong><br>
+        Envie um e-mail para <a href="mailto:privacidade@aguagestao.com.br">privacidade@aguagestao.com.br</a> com o assunto <em>"Exclusão de Conta e Dados - Água Gestão"</em> informando o e-mail cadastrado. A exclusão será processada e confirmada em até 48 horas úteis.
+      </div>
+
+      <h2>8. Menores de Idade</h2>
+      <p>
+        O aplicativo Água Gestão é direcionado exclusivamente a pessoas jurídicas e profissionais maiores de 18 anos responsáveis pela gestão de estabelecimentos comerciais. Não coletamos intencionalmente informações de crianças ou adolescentes.
+      </p>
+
+      <h2>9. Alterações nesta Política</h2>
+      <p>
+        Podemos atualizar esta Política de Privacidade periodicamente para refletir melhorias no sistema ou mudanças na legislação aplicável. Qualquer alteração substancial será notificada com destaque dentro do aplicativo.
+      </p>
+
+      <h2>10. Contato e Encarregado de Dados (DPO)</h2>
+      <p>Se tiver qualquer dúvida, sugestão ou reclamação referente à privacidade de seus dados, entre em contato:</p>
+      <ul>
+        <li><strong>Responsável / Suporte:</strong> Equipe de Privacidade Água Gestão</li>
+        <li><strong>E-mail de Suporte Geral:</strong> <a href="mailto:suporte@aguagestao.com.br" style="color: var(--primary); font-weight: 600;">suporte@aguagestao.com.br</a></li>
+        <li><strong>E-mail do Encarregado LGPD (DPO):</strong> <a href="mailto:privacidade@aguagestao.com.br" style="color: var(--primary); font-weight: 600;">privacidade@aguagestao.com.br</a></li>
+      </ul>
+
+    </main>
+
+    <footer class="footer-note">
+      <p>© 2026 Água Gestão. Todos os direitos reservados. CNPJ e Distribuição em conformidade com as leis brasileiras.</p>
+    </footer>
+
+  </div>
+</body>
+</html>
