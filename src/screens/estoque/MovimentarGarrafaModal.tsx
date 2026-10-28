@@ -212,7 +212,7 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
             </View>
 
             {/* 3. Quantidade de Garrafões Danificados */}
-            <Text style={[styles.label, { color: colors.text, marginTop: 14 }]}>
+            <Text style={[styles.label, { color: colors.text, marginTop: 18, marginBottom: 12 }]}>
               3. Quantidade de Garrafões Danificados:
             </Text>
             <View style={styles.qtdBox}>
@@ -315,7 +315,8 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '800',
-    marginBottom: 8,
+    marginBottom: 10,
+    lineHeight: 18,
   },
   tipoRow: {
     flexDirection: 'row',
@@ -347,24 +348,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 14,
+    marginTop: 8,
+    marginBottom: 14,
   },
   qtdControlBtn: {
-    width: 44,
-    height: 44,
+    width: 46,
+    height: 46,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   qtdInput: {
-    width: 80,
-    height: 44,
+    width: 84,
+    height: 48,
     borderRadius: 12,
     borderWidth: 2,
     textAlign: 'center',
     fontSize: 20,
     fontWeight: '900',
+    paddingVertical: 0,
   },
   input: {
     height: 46,
