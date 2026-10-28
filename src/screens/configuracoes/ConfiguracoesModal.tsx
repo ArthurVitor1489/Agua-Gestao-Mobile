@@ -483,7 +483,7 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
                 style={styles.versionClickable}
               >
                 <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '600' }}>
-                  Água Gestão Pro • Versão 1.0.0
+                  Água Gestão Pro • Versão 1.0.3
                 </Text>
               </TouchableOpacity>
 
@@ -655,7 +655,7 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
                   activeOpacity={0.7}
                 >
                   <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
-                    • Versão: <Text style={{ fontWeight: 'bold', color: colors.text }}>1.0.0 Pro</Text>
+                    • Versão: <Text style={{ fontWeight: 'bold', color: colors.text }}>1.0.3 Pro</Text>
                   </Text>
                 </TouchableOpacity>
                 <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
