@@ -1,0 +1,27 @@
+name: Supabase Keep-Alive (Uptime)
+
+on:
+  schedule:
+    # Roda a cada 2 dias às 12:00 UTC (garante que nunca atinja 7 dias de inatividade)
+    - cron: '0 12 */2 * *'
+  workflow_dispatch: # Permite disparar manualmente pelo painel do GitHub
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase Database
+        run: |
+          echo "Realizando ping preventivo no Supabase para manter o banco ativo..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: sb_publishable_6gPw8vyAn_AIWrf7y_Ga5A_wYU2xyPs" \
+            -H "Authorization: Bearer sb_publishable_6gPw8vyAn_AIWrf7y_Ga5A_wYU2xyPs" \
+            "https://owphqcljfztrduhmbmrh.supabase.co/rest/v1/configuracao?select=id&limit=1")
+          
+          echo "Status de resposta retornado: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" -eq 200 ]; then
+            echo "✅ Supabase está ativo, saudável e acordado!"
+          else
+            echo "⚠️ Resposta inesperada: $HTTP_STATUS"
+            exit 1
+          fi
