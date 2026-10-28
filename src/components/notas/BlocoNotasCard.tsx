@@ -202,18 +202,6 @@ export const BlocoNotasCard: React.FC<BlocoNotasCardProps> = ({ notas, onRefresh
                       />
                     </TouchableOpacity>
 
-                    {/* Botão Excluir Nota */}
-                    <TouchableOpacity
-                      style={styles.doneIconBtn}
-                      onPress={() => handleExcluirNota(nota.id, nota.titulo)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Trash2
-                        size={15}
-                        color={isDark ? colors.textMuted : '#ef4444'}
-                      />
-                    </TouchableOpacity>
-
                     {/* Botão Concluir/Arquivar Nota */}
                     <TouchableOpacity
                       style={styles.doneIconBtn}
@@ -223,6 +211,18 @@ export const BlocoNotasCard: React.FC<BlocoNotasCardProps> = ({ notas, onRefresh
                       <CheckCircle2
                         size={17}
                         color={isDark ? colors.textMuted : '#64748b'}
+                      />
+                    </TouchableOpacity>
+
+                    {/* Botão Excluir Nota */}
+                    <TouchableOpacity
+                      style={styles.doneIconBtn}
+                      onPress={() => handleExcluirNota(nota.id, nota.titulo)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Trash2
+                        size={15}
+                        color={isDark ? colors.textMuted : '#ef4444'}
                       />
                     </TouchableOpacity>
                   </View>
