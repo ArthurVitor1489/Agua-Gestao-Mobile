@@ -31,7 +31,7 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
   onSuccess,
 }) => {
   const { colors } = useTheme();
-  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
+  const { keyboardHeight, maxModalHeight, bottomPadding } = useKeyboardOffset();
 
   const [nome, setNome] = useState('');
   const [cpfCnpj, setCpfCnpj] = useState('');
@@ -337,7 +337,7 @@ export const NovoClienteModal: React.FC<NovoClienteModalProps> = ({
             <View style={{ height: 20 }} />
           </ScrollView>
 
-          <View style={[styles.footer, { borderTopColor: colors.border }]}>
+          <View style={[styles.footer, { borderTopColor: colors.border, paddingBottom: 14 + bottomPadding }]}>
             <TouchableOpacity
               style={[styles.confirmBtn, { backgroundColor: colors.primary }]}
               onPress={handleSalvar}
@@ -372,7 +372,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '92%',
-    paddingBottom: 16,
   },
   header: {
     flexDirection: 'row',

@@ -29,7 +29,7 @@ export const NovaDespesaModal: React.FC<NovaDespesaModalProps> = ({
   onSuccess,
 }) => {
   const { colors } = useTheme();
-  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
+  const { keyboardHeight, maxModalHeight, bottomPadding } = useKeyboardOffset();
 
   const [descricao, setDescricao] = useState('');
   const [valor, setValor] = useState('');
@@ -163,7 +163,7 @@ export const NovaDespesaModal: React.FC<NovaDespesaModalProps> = ({
             <View style={{ height: 20 }} />
           </ScrollView>
 
-          <View style={[styles.footer, { borderTopColor: colors.border }]}>
+          <View style={[styles.footer, { borderTopColor: colors.border, paddingBottom: 14 + bottomPadding }]}>
             <TouchableOpacity
               style={[styles.confirmBtn, { backgroundColor: colors.danger }]}
               onPress={handleSalvar}
@@ -196,7 +196,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
-    paddingBottom: 16,
   },
   header: {
     flexDirection: 'row',

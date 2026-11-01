@@ -13,6 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import { HapticService } from '../../services/hapticService';
 import { LocalStorage } from '../../database/localStorage';
 import { getDatabase } from '../../database/sqlite';
+import { useKeyboardOffset } from '../../hooks/useKeyboardOffset';
 import {
   X,
   FileText,
@@ -36,6 +37,7 @@ export const TermosPrivacidadeModal: React.FC<TermosPrivacidadeModalProps> = ({
 }) => {
   const { colors } = useTheme();
   const { logout } = useAuth();
+  const { bottomPadding } = useKeyboardOffset();
   const [tabAtiva, setTabAtiva] = useState<'termos' | 'privacidade' | 'exclusao'>(initialTab);
   const [excluindo, setExcluindo] = useState(false);
 
@@ -340,7 +342,7 @@ export const TermosPrivacidadeModal: React.FC<TermosPrivacidadeModalProps> = ({
           </ScrollView>
 
           {/* Footer */}
-          <View style={[styles.modalFooter, { borderTopColor: colors.border }]}>
+          <View style={[styles.modalFooter, { borderTopColor: colors.border, paddingBottom: 14 + bottomPadding }]}>
             <TouchableOpacity
               style={[styles.closeModalBtn, { backgroundColor: colors.primary }]}
               onPress={onClose}

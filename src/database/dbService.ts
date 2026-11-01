@@ -1566,20 +1566,32 @@ export const FinanceiroService = {
 // 7. SERVIÇO DE DASHBOARD EM TEMPO REAL
 // ----------------------------------------------------
 export const DashboardService = {
-  getDashboard(periodo: 'hoje' | '7dias' | 'mes' | 'ano' = 'hoje'): DashboardData {
+  getDashboard(
+    periodo: 'hoje' | '7dias' | 'mes' | '30dias' | 'mes_anterior' | 'ano' = 'hoje'
+  ): DashboardData {
     const db = getDatabase();
     const now = new Date();
     let dataCorte = new Date();
+    let dataFimIso: string | null = null;
 
     if (periodo === 'hoje') {
       dataCorte.setHours(0, 0, 0, 0);
     } else if (periodo === '7dias') {
       dataCorte.setDate(now.getDate() - 7);
       dataCorte.setHours(0, 0, 0, 0);
+    } else if (periodo === '30dias') {
+      dataCorte.setDate(now.getDate() - 30);
+      dataCorte.setHours(0, 0, 0, 0);
+    } else if (periodo === 'mes_anterior') {
+      const ano = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+      const mes = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+      dataCorte = new Date(ano, mes, 1);
+      const dataFim = new Date(now.getFullYear(), now.getMonth(), 1);
+      dataFimIso = dataFim.toISOString();
     } else if (periodo === 'ano') {
       dataCorte = new Date(now.getFullYear(), 0, 1);
     } else {
-      // mes
+      // mes (mês atual)
       dataCorte = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
@@ -1598,10 +1610,11 @@ export const DashboardService = {
     }
 
     // 1. Pedidos do período
-    const pedidos = db.getAllSync<any>(
-      'SELECT id, valorTotal, status, formaPagamento, pagamentosJson FROM pedidos WHERE data >= ?',
-      [dataCorteIso]
-    );
+    const sqlPedidos = dataFimIso
+      ? 'SELECT id, valorTotal, status, formaPagamento, pagamentosJson FROM pedidos WHERE data >= ? AND data < ?'
+      : 'SELECT id, valorTotal, status, formaPagamento, pagamentosJson FROM pedidos WHERE data >= ?';
+    const paramsPedidos = dataFimIso ? [dataCorteIso, dataFimIso] : [dataCorteIso];
+    const pedidos = db.getAllSync<any>(sqlPedidos, paramsPedidos);
 
     let faturamento = 0;
     let recebido = 0;
@@ -1702,10 +1715,11 @@ export const DashboardService = {
     // 2. Quitações e amortizações de fiados recebidas no período
     // O dinheiro sai do FIADO e entra no meio de pagamento que o cliente usou (PIX, Dinheiro, etc.)
     try {
-      const quitacoesRows = db.getAllSync<any>(
-        'SELECT valor, formaPagamento FROM quitacoes_fiado WHERE data >= ?',
-        [dataCorteIso]
-      );
+      const sqlQuitacoes = dataFimIso
+        ? 'SELECT valor, formaPagamento FROM quitacoes_fiado WHERE data >= ? AND data < ?'
+        : 'SELECT valor, formaPagamento FROM quitacoes_fiado WHERE data >= ?';
+      const paramsQuitacoes = dataFimIso ? [dataCorteIso, dataFimIso] : [dataCorteIso];
+      const quitacoesRows = db.getAllSync<any>(sqlQuitacoes, paramsQuitacoes);
       for (const q of quitacoesRows) {
         if (q.valor > 0) {
           somarNaForma(q.formaPagamento, q.valor);
@@ -1716,11 +1730,25 @@ export const DashboardService = {
       console.warn('Erro ao processar quitacoes_fiado no dashboard:', e);
     }
 
-    // 2. Despesas do período
-    const despesasRows = db.getAllSync<any>(
-      'SELECT valor FROM despesas WHERE data >= ?',
-      [dataCorteIso]
-    );
+    // 3. Saldo Total em Aberto da Distribuidora (Fiados ativos com saldo devedor pendente)
+    let totalFiadosEmAberto = 0;
+    try {
+      const fiadoTotalRow = db.getFirstSync<{ total: number }>(
+        "SELECT SUM(saldo) as total FROM fiados WHERE situacao NOT IN ('QUITADO', 'CANCELADO') AND saldo > 0"
+      );
+      totalFiadosEmAberto = fiadoTotalRow?.total || 0;
+    } catch (e) {
+      console.warn('Erro ao calcular total fiados em aberto:', e);
+    }
+    // O valor exibido no card "A Receber / Fiados" reflete o saldo real ativo a receber
+    emAberto = totalFiadosEmAberto;
+
+    // 4. Despesas do período
+    const sqlDespesas = dataFimIso
+      ? 'SELECT valor FROM despesas WHERE data >= ? AND data < ?'
+      : 'SELECT valor FROM despesas WHERE data >= ?';
+    const paramsDespesas = dataFimIso ? [dataCorteIso, dataFimIso] : [dataCorteIso];
+    const despesasRows = db.getAllSync<any>(sqlDespesas, paramsDespesas);
     const totalDespesas = despesasRows.reduce((acc, curr) => acc + (curr.valor || 0), 0);
     const resultado = recebido - totalDespesas;
 

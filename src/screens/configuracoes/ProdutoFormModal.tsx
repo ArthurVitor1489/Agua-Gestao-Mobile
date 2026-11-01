@@ -31,7 +31,7 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
   onSuccess,
 }) => {
   const { colors } = useTheme();
-  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
+  const { keyboardHeight, maxModalHeight, bottomPadding } = useKeyboardOffset();
 
   const [nome, setNome] = useState('');
   const [precoVenda, setPrecoVenda] = useState('');
@@ -153,7 +153,7 @@ export const ProdutoFormModal: React.FC<ProdutoFormModalProps> = ({
             <View style={{ height: 24 }} />
           </ScrollView>
 
-          <View style={[styles.footer, { borderTopColor: colors.border }]}>
+          <View style={[styles.footer, { borderTopColor: colors.border, paddingBottom: 14 + bottomPadding }]}>
             <TouchableOpacity
               style={[styles.confirmBtn, { backgroundColor: colors.primary }]}
               onPress={handleSalvar}
@@ -188,7 +188,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '92%',
-    paddingBottom: 16,
   },
   header: {
     flexDirection: 'row',

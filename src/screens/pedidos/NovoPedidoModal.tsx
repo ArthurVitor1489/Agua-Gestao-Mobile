@@ -42,7 +42,7 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
   onSuccess,
 }) => {
   const { colors } = useTheme();
-  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
+  const { keyboardHeight, maxModalHeight, bottomPadding } = useKeyboardOffset();
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -777,7 +777,7 @@ export const NovoPedidoModal: React.FC<NovoPedidoModalProps> = ({
           </ScrollView>
 
           {/* Rodapé com Total e Botão de Concluir */}
-          <View style={[styles.modalFooter, { borderTopColor: colors.border }]}>
+          <View style={[styles.modalFooter, { borderTopColor: colors.border, paddingBottom: 14 + bottomPadding }]}>
             <View>
               <Text style={{ color: colors.textMuted, fontSize: 12 }}>TOTAL FINAL</Text>
               <Text style={[styles.totalFinalNum, { color: colors.primary }]}>
@@ -817,7 +817,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '92%',
-    paddingBottom: 16,
   },
   modalHeader: {
     flexDirection: 'row',

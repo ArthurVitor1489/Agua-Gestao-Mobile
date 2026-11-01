@@ -31,7 +31,7 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
   onSuccess,
 }) => {
   const { colors } = useTheme();
-  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
+  const { keyboardHeight, maxModalHeight, bottomPadding } = useKeyboardOffset();
 
   // Produtos que usam vasilhame retornável (Galão 20L)
   const produtosRetornaveis = produtos.filter(
@@ -195,7 +195,7 @@ export const CargaEnvaseModal: React.FC<CargaEnvaseModalProps> = ({
             <View style={{ height: 20 }} />
           </ScrollView>
 
-          <View style={[styles.footer, { borderTopColor: colors.border }]}>
+          <View style={[styles.footer, { borderTopColor: colors.border, paddingBottom: 14 + bottomPadding }]}>
             <TouchableOpacity
               style={[styles.confirmBtn, { backgroundColor: colors.primary }]}
               onPress={handleSalvar}
@@ -228,7 +228,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '92%',
-    paddingBottom: 16,
   },
   header: {
     flexDirection: 'row',

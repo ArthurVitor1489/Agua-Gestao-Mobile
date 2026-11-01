@@ -59,7 +59,7 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
 }) => {
   const { colors } = useTheme();
   const { logout } = useAuth();
-  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
+  const { keyboardHeight, maxModalHeight, bottomPadding } = useKeyboardOffset();
 
   const [abaAtiva, setAbaAtiva] = useState<'produtos' | 'distribuidora' | 'termos'>(initialTab);
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -232,7 +232,7 @@ export const ConfiguracoesModal: React.FC<ConfiguracoesModalProps> = ({
         <View
           style={[
             styles.container,
-            { backgroundColor: colors.card },
+            { backgroundColor: colors.card, paddingBottom: bottomPadding },
             maxModalHeight ? { height: maxModalHeight } : null,
           ]}
         >

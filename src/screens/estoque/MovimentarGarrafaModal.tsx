@@ -31,7 +31,7 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
   onSuccess,
 }) => {
   const { colors } = useTheme();
-  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
+  const { keyboardHeight, maxModalHeight, bottomPadding } = useKeyboardOffset();
 
   const produtosValidos = produtos.filter((p) => p.ativo && p.categoria !== 'GARRAFAO_NOVO');
   const [selectedProdutoId, setSelectedProdutoId] = useState<string>('');
@@ -268,7 +268,7 @@ export const MovimentarGarrafaModal: React.FC<MovimentarGarrafaModalProps> = ({
             <View style={{ height: 20 }} />
           </ScrollView>
 
-          <View style={[styles.footer, { borderTopColor: colors.border }]}>
+          <View style={[styles.footer, { borderTopColor: colors.border, paddingBottom: 14 + bottomPadding }]}>
             <TouchableOpacity
               style={[styles.confirmBtn, { backgroundColor: colors.secondary }]}
               onPress={handleSalvar}
@@ -301,7 +301,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '92%',
-    paddingBottom: 16,
   },
   header: {
     flexDirection: 'row',

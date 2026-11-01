@@ -28,9 +28,19 @@ import {
   ArrowDownRight,
 } from 'lucide-react-native';
 
+type PeriodoDashboard = 'hoje' | '7dias' | 'mes' | '30dias' | 'mes_anterior';
+
+const PERIODOS: Array<{ id: PeriodoDashboard; label: string; headerLabel: string }> = [
+  { id: 'hoje', label: 'Hoje', headerLabel: 'HOJE' },
+  { id: '7dias', label: '7 dias', headerLabel: 'ÚLTIMOS 7 DIAS' },
+  { id: 'mes', label: 'Mês Atual', headerLabel: 'MÊS ATUAL' },
+  { id: '30dias', label: '30 dias', headerLabel: 'ÚLTIMOS 30 DIAS' },
+  { id: 'mes_anterior', label: 'Mês Anterior', headerLabel: 'MÊS ANTERIOR' },
+];
+
 export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { colors } = useTheme();
-  const [periodo, setPeriodo] = useState<'hoje' | '7dias' | 'mes'>('hoje');
+  const [periodo, setPeriodo] = useState<PeriodoDashboard>('mes');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<DashboardData | null>(null);
@@ -70,7 +80,7 @@ export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =
     await loadDashboard();
   };
 
-  const selectPeriodo = (p: 'hoje' | '7dias' | 'mes') => {
+  const selectPeriodo = (p: PeriodoDashboard) => {
     HapticService.light();
     setPeriodo(p);
   };
@@ -81,35 +91,40 @@ export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =
       contentContainerStyle={{ paddingBottom: 110 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
     >
-      {/* Seletor de Período Ergonômico */}
-      <View style={styles.periodRow}>
-        {(['hoje', '7dias', 'mes'] as const).map((p) => {
-          const isSelected = periodo === p;
-          const label = p === 'hoje' ? 'Hoje' : p === '7dias' ? 'Últimos 7 dias' : 'Mês Atual';
-          return (
-            <TouchableOpacity
-              key={p}
-              style={[
-                styles.periodPill,
-                {
-                  backgroundColor: isSelected ? colors.primary : colors.card,
-                  borderColor: isSelected ? colors.primary : colors.border,
-                },
-              ]}
-              onPress={() => selectPeriodo(p)}
-              activeOpacity={0.7}
-            >
-              <Text
+      {/* Seletor de Período Ergonômico com Rolagem Horizontal Suave */}
+      <View style={{ marginBottom: 16 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.periodRow}
+        >
+          {PERIODOS.map((item) => {
+            const isSelected = periodo === item.id;
+            return (
+              <TouchableOpacity
+                key={item.id}
                 style={[
-                  styles.periodText,
-                  { color: isSelected ? '#fff' : colors.textMuted, fontWeight: isSelected ? '800' : '600' },
+                  styles.periodPill,
+                  {
+                    backgroundColor: isSelected ? colors.primary : colors.card,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                  },
                 ]}
+                onPress={() => selectPeriodo(item.id)}
+                activeOpacity={0.7}
               >
-                {label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+                <Text
+                  style={[
+                    styles.periodText,
+                    { color: isSelected ? '#fff' : colors.textMuted, fontWeight: isSelected ? '800' : '600' },
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {loading && !refreshing ? (
@@ -124,7 +139,7 @@ export const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =
             <View style={styles.cardHeader}>
               <View>
                 <Text style={[styles.cardSubtitle, { color: colors.textMuted }]}>
-                  FATURAMENTO ({periodo.toUpperCase()})
+                  FATURAMENTO ({PERIODOS.find((item) => item.id === periodo)?.headerLabel || periodo.toUpperCase()})
                 </Text>
                 <Text style={[styles.mainValue, { color: colors.text }]}>
                   R$ {(data?.faturamento || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -301,11 +316,11 @@ const styles = StyleSheet.create({
   periodRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    paddingHorizontal: 2,
   },
   periodPill: {
-    flex: 1,
     paddingVertical: 9,
+    paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',

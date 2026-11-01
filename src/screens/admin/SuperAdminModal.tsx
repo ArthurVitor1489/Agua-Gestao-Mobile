@@ -44,7 +44,7 @@ interface SuperAdminModalProps {
 
 export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ visible, onClose }) => {
   const { colors } = useTheme();
-  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
+  const { keyboardHeight, maxModalHeight, bottomPadding } = useKeyboardOffset();
 
   const [autenticado, setAutenticado] = useState(false);
   const [pinDigitado, setPinDigitado] = useState('');
@@ -222,7 +222,7 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ visible, onClo
         <View
           style={[
             styles.container,
-            { backgroundColor: colors.card },
+            { backgroundColor: colors.card, paddingBottom: bottomPadding },
             maxModalHeight ? { height: maxModalHeight } : null,
           ]}
         >

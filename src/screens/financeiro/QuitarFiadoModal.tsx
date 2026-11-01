@@ -31,7 +31,7 @@ export const QuitarFiadoModal: React.FC<QuitarFiadoModalProps> = ({
   onSuccess,
 }) => {
   const { colors } = useTheme();
-  const { keyboardHeight, maxModalHeight } = useKeyboardOffset();
+  const { keyboardHeight, maxModalHeight, bottomPadding } = useKeyboardOffset();
 
   const [valorPago, setValorPago] = useState(fiado?.saldo ? fiado.saldo.toFixed(2) : '');
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('PIX');
@@ -165,7 +165,7 @@ export const QuitarFiadoModal: React.FC<QuitarFiadoModalProps> = ({
             />
           </ScrollView>
 
-          <View style={[styles.footer, { borderTopColor: colors.border }]}>
+          <View style={[styles.footer, { borderTopColor: colors.border, paddingBottom: 14 + bottomPadding }]}>
             <TouchableOpacity
               style={[styles.confirmBtn, { backgroundColor: colors.success }]}
               onPress={handleSalvar}
@@ -198,7 +198,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
-    paddingBottom: 16,
   },
   header: {
     flexDirection: 'row',
