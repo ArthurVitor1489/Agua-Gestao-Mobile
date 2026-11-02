@@ -48,16 +48,10 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ visible, onClo
 
   const [autenticado, setAutenticado] = useState(false);
   const [pinDigitado, setPinDigitado] = useState('');
-  const [novoPin, setNovoPin] = useState('');
   const [distribuidoras, setDistribuidoras] = useState<DistribuidoraCliente[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<'TODOS' | 'TRIAL' | 'ATIVO' | 'BLOQUEADO'>('TODOS');
-  const [abaAtiva, setAbaAtiva] = useState<'distribuidoras' | 'nuvem'>('distribuidoras');
-
-  // Configuração da Nuvem
-  const [cloudUrl, setCloudUrl] = useState('');
-  const [cloudApiKey, setCloudApiKey] = useState('');
 
   useEffect(() => {
     if (visible) {
@@ -74,10 +68,6 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ visible, onClo
       setLoading(true);
       const lista = await CloudAdminService.listarTodasDistribuidoras();
       setDistribuidoras(lista);
-
-      const cfg = CloudAdminService.getCloudConfig();
-      setCloudUrl(cfg.url);
-      setCloudApiKey(cfg.apiKey);
     } catch (e) {
       console.warn('Erro ao carregar dados do admin:', e);
     } finally {
@@ -86,9 +76,8 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ visible, onClo
   };
 
   const handleVerificarPin = async () => {
-    const currentPin = CloudAdminService.getAdminPin();
     const digitado = pinDigitado.trim();
-    if (digitado === currentPin || digitado === '1489' || digitado === '2026') {
+    if (digitado === '1489') {
       await HapticService.success();
       setAutenticado(true);
       carregarDados();
@@ -97,16 +86,6 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ visible, onClo
       Alert.alert('Acesso Negado', 'PIN de Administrador incorreto.');
       setPinDigitado('');
     }
-  };
-
-  const handleSalvarNovoPin = () => {
-    if (!novoPin || novoPin.trim().length < 4) {
-      Alert.alert('Atenção', 'O novo PIN deve ter pelo menos 4 dígitos ou caracteres.');
-      return;
-    }
-    CloudAdminService.saveAdminPin(novoPin.trim());
-    Alert.alert('Sucesso', 'PIN do Painel Master atualizado com sucesso!');
-    setNovoPin('');
   };
 
   const handleLiberarLicenca = async (dist: DistribuidoraCliente) => {
@@ -190,13 +169,6 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ visible, onClo
     });
   };
 
-  const handleSalvarNuvem = () => {
-    CloudAdminService.saveCloudConfig(cloudUrl, cloudApiKey);
-    HapticService.success();
-    Alert.alert('Salvo', 'Configurações da nuvem atualizadas com sucesso!');
-    carregarDados();
-  };
-
   // Filtros
   const distribuidorasFiltradas = distribuidoras.filter((d) => {
     const matchSearch =
@@ -276,39 +248,7 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ visible, onClo
             </View>
           ) : (
             <View style={{ flex: 1 }}>
-              {/* Abas */}
-              <View style={[styles.tabBar, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
-                <TouchableOpacity
-                  style={[styles.tabItem, abaAtiva === 'distribuidoras' && { borderBottomColor: colors.primary, borderBottomWidth: 3 }]}
-                  onPress={() => setAbaAtiva('distribuidoras')}
-                >
-                  <Text
-                    style={[
-                      styles.tabText,
-                      { color: abaAtiva === 'distribuidoras' ? colors.primary : colors.textMuted, fontWeight: abaAtiva === 'distribuidoras' ? '800' : '600' },
-                    ]}
-                  >
-                    Distribuidoras ({total})
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.tabItem, abaAtiva === 'nuvem' && { borderBottomColor: colors.primary, borderBottomWidth: 3 }]}
-                  onPress={() => setAbaAtiva('nuvem')}
-                >
-                  <Text
-                    style={[
-                      styles.tabText,
-                      { color: abaAtiva === 'nuvem' ? colors.primary : colors.textMuted, fontWeight: abaAtiva === 'nuvem' ? '800' : '600' },
-                    ]}
-                  >
-                    Configurar Nuvem
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {abaAtiva === 'distribuidoras' ? (
-                <ScrollView style={styles.bodyScroll} showsVerticalScrollIndicator={false}>
+              <ScrollView style={styles.bodyScroll} showsVerticalScrollIndicator={false}>
                   {/* KPIs */}
                   <View style={styles.kpiRow}>
                     <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -484,103 +424,6 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ visible, onClo
 
                   <View style={{ height: 40 }} />
                 </ScrollView>
-              ) : (
-                /* Aba Nuvem / Supabase */
-                <ScrollView style={styles.bodyScroll} showsVerticalScrollIndicator={false}>
-                  <View style={[styles.cloudInfoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Database size={24} color={colors.primary} />
-                    <Text style={[styles.cloudInfoTitle, { color: colors.text }]}>
-                      Sincronização com Nuvem Gratuita
-                    </Text>
-                    <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4, lineHeight: 18 }}>
-                      O aplicativo funciona de forma 100% autônoma no celular do cliente. Para centralizar os dados no seu painel em tempo real, você pode conectar um banco de dados gratuito do Supabase ou similar.
-                    </Text>
-                  </View>
-
-                  <Text style={[styles.fieldLabel, { color: colors.text }]}>URL da API / Supabase:</Text>
-                  <TextInput
-                    style={[styles.cloudInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
-                    placeholder="https://seu-projeto.supabase.co"
-                    placeholderTextColor={colors.textMuted}
-                    value={cloudUrl}
-                    onChangeText={setCloudUrl}
-                    autoCapitalize="none"
-                  />
-
-                  <Text style={[styles.fieldLabel, { color: colors.text, marginTop: 12 }]}>Chave Pública (anon key):</Text>
-                  <TextInput
-                    style={[styles.cloudInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
-                    placeholder="eyJhbGciOi..."
-                    placeholderTextColor={colors.textMuted}
-                    value={cloudApiKey}
-                    onChangeText={setCloudApiKey}
-                    autoCapitalize="none"
-                    secureTextEntry
-                  />
-
-                  <TouchableOpacity
-                    style={[styles.saveCloudBtn, { backgroundColor: colors.primary }]}
-                    onPress={handleSalvarNuvem}
-                  >
-                    <CheckCircle2 size={18} color="#fff" />
-                    <Text style={styles.saveCloudBtnText}>Salvar Configuração da Nuvem</Text>
-                  </TouchableOpacity>
-
-                  {/* Alterar PIN Master */}
-                  <View style={[styles.cloudInfoCard, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 10 }]}>
-                    <Lock size={22} color={colors.primary} />
-                    <Text style={[styles.cloudInfoTitle, { color: colors.text }]}>
-                      Segurança do Painel Master
-                    </Text>
-                    <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4, marginBottom: 12 }}>
-                      Altere o PIN numérico exigido para abrir este painel. O PIN padrão inicial é 2026.
-                    </Text>
-
-                    <TextInput
-                      style={[styles.cloudInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
-                      placeholder="Novo PIN (ex: 4 a 8 dígitos)"
-                      placeholderTextColor={colors.textMuted}
-                      value={novoPin}
-                      onChangeText={setNovoPin}
-                      keyboardType="numeric"
-                      secureTextEntry
-                      maxLength={12}
-                    />
-
-                    <TouchableOpacity
-                      style={[styles.saveCloudBtn, { backgroundColor: '#10b981', marginTop: 12, marginBottom: 4 }]}
-                      onPress={handleSalvarNovoPin}
-                    >
-                      <CheckCircle2 size={18} color="#fff" />
-                      <Text style={styles.saveCloudBtnText}>Atualizar PIN Master</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* SQL Helper */}
-                  <View style={[styles.sqlBox, { backgroundColor: '#1e293b' }]}>
-                    <Text style={{ color: '#94a3b8', fontSize: 11, fontWeight: '700', marginBottom: 6 }}>
-                      TABELA SUPABASE (SQL PARA COPIAR E COLAR):
-                    </Text>
-                    <Text style={{ color: '#38bdf8', fontSize: 11, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }}>
-                      {`create table distribuidoras (
-  id text primary key,
-  nome_distribuidora text,
-  responsavel text,
-  email text,
-  whatsapp text,
-  cidade text,
-  estado text,
-  status text default 'TRIAL',
-  plano text default 'TRIAL_14_DIAS',
-  trial_start_date text,
-  created_at timestamp default now()
-);`}
-                    </Text>
-                  </View>
-
-                  <View style={{ height: 40 }} />
-                </ScrollView>
-              )}
             </View>
           )}
         </View>
